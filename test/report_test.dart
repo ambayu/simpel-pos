@@ -12,8 +12,8 @@ void main() {
       );
       final detailName = ReportExporter.generateDetailFileName(now: fixedDate);
 
-      expect(summaryName, 'laporan_rekap_penjualan_20260828_164530.xlsx');
-      expect(detailName, 'laporan_detail_penjualan_20260828_164530.xlsx');
+      expect(summaryName, 'Laporan_Rekap_Penjualan_2026-08-28_164530.xlsx');
+      expect(detailName, 'Laporan_Detail_Penjualan_2026-08-28_164530.xlsx');
     },
   );
 
@@ -27,7 +27,7 @@ void main() {
       );
       expect(
         summaryWithSuffix,
-        'laporan_rekap_penjualan_hari_ini_qris_20260828_164530.xlsx',
+        'Laporan_Rekap_Penjualan_hari_ini_qris_2026-08-28_164530.xlsx',
       );
     },
   );

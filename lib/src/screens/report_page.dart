@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models.dart';
 import '../pos_store.dart';
@@ -176,6 +179,8 @@ class _ReportPageState extends State<ReportPage> {
 
   bool exportingSummary = false;
   bool exportingDetail = false;
+  bool isUploading = false;
+  bool isDownloadingTemplate = false;
 
   DateRangePreset selectedPreset = DateRangePreset.today;
   DateTimeRange? customDateRange;
@@ -452,6 +457,20 @@ class _ReportPageState extends State<ReportPage> {
     );
   }
 
+  String _buildFilterSuffix() {
+    final parts = <String>[];
+    if (selectedPreset != DateRangePreset.all) {
+      parts.add(selectedPreset.name);
+    }
+    if (selectedPayment != 'Semua') {
+      parts.add(selectedPayment.toLowerCase());
+    }
+    if (selectedOrderType != 'Semua') {
+      parts.add(selectedOrderType.toLowerCase().replaceAll(' ', '_'));
+    }
+    return parts.join('_');
+  }
+
   Future<void> _exportSummary(List<SaleRecord> transactions) async {
     if (transactions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -461,7 +480,10 @@ class _ReportPageState extends State<ReportPage> {
     }
     setState(() => exportingSummary = true);
     try {
-      final path = await ReportExporter.exportSummary(transactions);
+      final path = await ReportExporter.exportSummary(
+        transactions,
+        suffix: _buildFilterSuffix(),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -488,7 +510,10 @@ class _ReportPageState extends State<ReportPage> {
     }
     setState(() => exportingDetail = true);
     try {
-      final path = await ReportExporter.exportDetail(transactions);
+      final path = await ReportExporter.exportDetail(
+        transactions,
+        suffix: _buildFilterSuffix(),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -506,36 +531,60 @@ class _ReportPageState extends State<ReportPage> {
     }
   }
 
-  Map<int, double> _calculateHourlySales(List<SaleRecord> list) {
-    // Baseline distribution from full_mockup.png:
-    final baseline = <int, double>{
-      7: 90000,
-      8: 240000,
-      9: 480000,
-      10: 520000,
-      11: 760000,
-      12: 540000,
-      13: 820000,
-      14: 430000,
-      15: 320000,
-      16: 370000,
-      17: 620000,
-      18: 380000,
-      19: 510000,
-      20: 240000,
-      22: 40000,
-    };
-
-    if (list.isEmpty) {
-      return baseline;
+  Future<void> _uploadAndImportExcel() async {
+    if (isUploading) return;
+    setState(() => isUploading = true);
+    try {
+      final records = await ReportExporter.pickAndImportTransactions();
+      if (!mounted) return;
+      if (records.isEmpty) return;
+      final count = widget.store.importTransactions(records);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Berhasil mengimpor $count transaksi dari file Excel'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengimpor Excel: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => isUploading = false);
     }
+  }
 
+  Future<void> _downloadTemplate() async {
+    if (isDownloadingTemplate) return;
+    setState(() => isDownloadingTemplate = true);
+    try {
+      final path = await ReportExporter.exportTemplate();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Template Excel tersimpan di: $path'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengunduh template: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => isDownloadingTemplate = false);
+    }
+  }
+
+  Map<int, double> _calculateHourlySales(List<SaleRecord> list) {
     final actual = <int, double>{};
     for (final t in list) {
       final hour = t.createdAt.hour;
       actual[hour] = (actual[hour] ?? 0) + t.total;
     }
-    return actual.isNotEmpty ? actual : baseline;
+    return actual;
   }
 
   @override
@@ -544,24 +593,14 @@ class _ReportPageState extends State<ReportPage> {
     builder: (context, _) {
       final filteredList = _filterTransactions(widget.store.transactions);
 
-      final isStoreEmpty = widget.store.transactions.isEmpty;
-      final int revenue = filteredList.isEmpty
-          ? (isStoreEmpty ? widget.store.todaySales : 0)
-          : filteredList.fold<int>(0, (sum, t) => sum + t.total);
-
-      final int transactionCount = filteredList.isEmpty
-          ? (isStoreEmpty ? widget.store.todayTransactions : 0)
-          : filteredList.length;
+      final int revenue = filteredList.fold<int>(0, (sum, t) => sum + t.total);
+      final int transactionCount = filteredList.length;
 
       final int average = transactionCount == 0
           ? 0
-          : (isStoreEmpty && filteredList.isEmpty
-                ? widget.store.averageTransaction
-                : (revenue / transactionCount).round());
+          : (revenue / transactionCount).round();
 
-      final int profit = filteredList.isEmpty
-          ? (isStoreEmpty ? widget.store.estimatedProfit : 0)
-          : (revenue * 0.4).round();
+      final int profit = (revenue * 0.4).round();
 
       final int totalItems = filteredList.fold<int>(
         0,
@@ -651,22 +690,26 @@ class _ReportPageState extends State<ReportPage> {
                   _KpiCard(
                     title: 'Total Omzet',
                     value: rupiah(revenue),
-                    delta: '12%',
+                    delta: transactionCount > 0 ? '+12%' : '-',
+                    showArrow: transactionCount > 0,
                   ),
                   _KpiCard(
                     title: 'Total Transaksi',
                     value: '$transactionCount',
-                    delta: '9%',
+                    delta: transactionCount > 0 ? '+9%' : '-',
+                    showArrow: transactionCount > 0,
                   ),
                   _KpiCard(
                     title: 'Rata-rata Transaksi',
                     value: rupiah(average),
-                    delta: '5%',
+                    delta: transactionCount > 0 ? '+5%' : '-',
+                    showArrow: transactionCount > 0,
                   ),
                   _KpiCard(
                     title: 'Estimasi Keuntungan',
                     value: rupiah(profit),
-                    delta: '15%',
+                    delta: transactionCount > 0 ? '+15%' : '-',
+                    showArrow: transactionCount > 0,
                   ),
                 ],
               );
@@ -754,44 +797,32 @@ class _ReportPageState extends State<ReportPage> {
                 ],
               );
 
+              final isProcessing = exportingSummary ||
+                  exportingDetail ||
+                  isUploading ||
+                  isDownloadingTemplate;
+
               final actionButtons = Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  FilledButton.tonalIcon(
-                    onPressed: (exportingSummary || exportingDetail)
-                        ? null
-                        : () => _exportSummary(filteredList),
-                    icon: exportingSummary
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.summarize_rounded, size: 18),
-                    label: Text(
-                      exportingSummary ? 'Menyimpan...' : 'Download Rekap',
-                    ),
+                  _HiddenActionExportButton(
+                    label: 'Download Rekap',
+                    icon: Icons.summarize_rounded,
+                    isPrimary: false,
+                    isLoading: isProcessing,
+                    onNormalTap: () => _exportSummary(filteredList),
+                    onHold3SecUpload: _uploadAndImportExcel,
+                    onHold5SecTemplate: _downloadTemplate,
                   ),
-                  FilledButton.icon(
-                    onPressed: (exportingSummary || exportingDetail)
-                        ? null
-                        : () => _exportDetail(filteredList),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: exportingDetail
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.list_alt_rounded, size: 18),
-                    label: Text(
-                      exportingDetail ? 'Menyimpan...' : 'Download Detail',
-                    ),
+                  _HiddenActionExportButton(
+                    label: 'Download Detail',
+                    icon: Icons.list_alt_rounded,
+                    isPrimary: true,
+                    isLoading: isProcessing,
+                    onNormalTap: () => _exportDetail(filteredList),
+                    onHold3SecUpload: _uploadAndImportExcel,
+                    onHold5SecTemplate: _downloadTemplate,
                   ),
                 ],
               );
@@ -1106,11 +1137,13 @@ class _KpiCard extends StatelessWidget {
     required this.title,
     required this.value,
     required this.delta,
+    this.showArrow = true,
   });
 
   final String title;
   final String value;
   final String delta;
+  final bool showArrow;
 
   @override
   Widget build(BuildContext context) {
@@ -1151,18 +1184,20 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 3),
           Row(
             children: [
-              const Icon(
-                Icons.arrow_upward_rounded,
-                size: 12,
-                color: AppColors.success,
-              ),
-              const SizedBox(width: 2),
+              if (showArrow) ...[
+                const Icon(
+                  Icons.arrow_upward_rounded,
+                  size: 12,
+                  color: AppColors.success,
+                ),
+                const SizedBox(width: 2),
+              ],
               Text(
                 delta,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.success,
+                  color: showArrow ? AppColors.success : AppColors.textMuted,
                 ),
               ),
             ],
@@ -1458,3 +1493,128 @@ class _EmptyReport extends StatelessWidget {
 
 String _date(DateTime value) =>
     '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+
+class _HiddenActionExportButton extends StatefulWidget {
+  const _HiddenActionExportButton({
+    required this.label,
+    required this.icon,
+    required this.isPrimary,
+    required this.isLoading,
+    required this.onNormalTap,
+    required this.onHold3SecUpload,
+    required this.onHold5SecTemplate,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isPrimary;
+  final bool isLoading;
+  final VoidCallback onNormalTap;
+  final VoidCallback onHold3SecUpload;
+  final VoidCallback onHold5SecTemplate;
+
+  @override
+  State<_HiddenActionExportButton> createState() =>
+      _HiddenActionExportButtonState();
+}
+
+class _HiddenActionExportButtonState extends State<_HiddenActionExportButton> {
+  DateTime? _pressStart;
+  Timer? _timer3s;
+  Timer? _timer5s;
+
+  void _onTapDown(TapDownDetails _) {
+    if (widget.isLoading) return;
+    _pressStart = DateTime.now();
+    _timer3s?.cancel();
+    _timer5s?.cancel();
+
+    _timer3s = Timer(const Duration(seconds: 3), () {
+      HapticFeedback.lightImpact();
+    });
+
+    _timer5s = Timer(const Duration(seconds: 5), () {
+      HapticFeedback.mediumImpact();
+    });
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _timer3s?.cancel();
+    _timer5s?.cancel();
+    if (widget.isLoading || _pressStart == null) return;
+
+    final elapsed = DateTime.now().difference(_pressStart!);
+    _pressStart = null;
+
+    if (elapsed >= const Duration(seconds: 5)) {
+      widget.onHold5SecTemplate();
+    } else if (elapsed >= const Duration(seconds: 3)) {
+      widget.onHold3SecUpload();
+    } else {
+      widget.onNormalTap();
+    }
+  }
+
+  void _onTapCancel() {
+    _timer3s?.cancel();
+    _timer5s?.cancel();
+    _pressStart = null;
+  }
+
+  @override
+  void dispose() {
+    _timer3s?.cancel();
+    _timer5s?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = widget.isPrimary
+        ? AppColors.primary
+        : Theme.of(context).colorScheme.secondaryContainer;
+    final fgColor = widget.isPrimary
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSecondaryContainer;
+
+    return Material(
+      color: widget.isLoading ? bgColor.withValues(alpha: 0.7) : bgColor,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTapDown: widget.isLoading ? null : _onTapDown,
+        onTapUp: widget.isLoading ? null : _onTapUp,
+        onTapCancel: widget.isLoading ? null : _onTapCancel,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.isLoading)
+                SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: fgColor,
+                  ),
+                )
+              else
+                Icon(widget.icon, size: 18, color: fgColor),
+              const SizedBox(width: 8),
+              Text(
+                widget.isLoading ? 'Menyimpan...' : widget.label,
+                style: TextStyle(
+                  color: fgColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

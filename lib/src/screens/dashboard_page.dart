@@ -159,17 +159,20 @@ class _DashboardHeader extends StatelessWidget {
                   _StatCard(
                     label: 'Omzet Hari Ini',
                     value: rupiah(store.todaySales),
-                    delta: '12%',
+                    delta: store.todayTransactions > 0 ? '+12%' : '-',
+                    showArrow: store.todayTransactions > 0,
                   ),
                   _StatCard(
                     label: 'Total Transaksi',
                     value: '${store.todayTransactions}',
-                    delta: '9%',
+                    delta: store.todayTransactions > 0 ? '+9%' : '-',
+                    showArrow: store.todayTransactions > 0,
                   ),
                   _StatCard(
                     label: 'Estimasi Keuntungan',
                     value: rupiah(store.estimatedProfit),
-                    delta: '15%',
+                    delta: store.todayTransactions > 0 ? '+15%' : '-',
+                    showArrow: store.todayTransactions > 0,
                   ),
                   _StatCard(
                     label: 'Meja Terisi',

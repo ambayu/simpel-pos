@@ -29,7 +29,7 @@ void main() {
   });
 
   test('pesanan disimpan dahulu dan meja menjadi terisi', () {
-    final store = PosStore();
+    final store = PosStore(seedDemoData: false);
     store.startOrder('Meja 01');
     store.add(store.menu.first);
 
@@ -41,7 +41,7 @@ void main() {
   });
 
   test('pesanan tersimpan dapat dibuka dan dibayar belakangan', () {
-    final store = PosStore();
+    final store = PosStore(seedDemoData: false);
     store.startOrder('Meja 01');
     store.add(store.menu.first);
     store.savePendingOrder();

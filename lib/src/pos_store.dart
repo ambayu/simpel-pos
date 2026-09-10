@@ -1,13 +1,18 @@
 ﻿import 'package:flutter/material.dart';
 
+import 'demo_data.dart';
 import 'models.dart';
 import 'theme/app_theme.dart';
 
 class PosStore extends ChangeNotifier {
-  PosStore() {
+  PosStore({this.seedDemoData = false}) {
     _seedTables();
+    if (seedDemoData) {
+      _seedInitialData();
+    }
   }
 
+  final bool seedDemoData;
   static const taxRate = .1;
 
   final tables = <CafeTable>[];
@@ -16,8 +21,6 @@ class PosStore extends ChangeNotifier {
   final transactions = <SaleRecord>[];
   final reservedTables = <int, String>{};
 
-  int todaySales = 2450000;
-  int todayTransactions = 48;
   int discount = 0;
   String role = 'Kasir';
   String? activeOrder;
@@ -210,9 +213,45 @@ class PosStore extends ChangeNotifier {
           (index) => CafeTable(number: index + 1, seats: index % 3 == 0 ? 4 : 2),
         ),
       );
-    reservedTables
-      ..clear()
-      ..addAll({4: '19:00', 11: '20:00'});
+    reservedTables.clear();
+    if (seedDemoData) {
+      reservedTables.addAll({4: '19:00', 11: '20:00'});
+    }
+  }
+
+  void _seedInitialData() {
+    transactions.clear();
+    transactions.addAll(generateInitialTransactions());
+    pendingOrders.clear();
+    pendingOrders.addAll(generateInitialPendingOrders(menu));
+  }
+
+  int get todaySales {
+    if (transactions.isEmpty) return 0;
+    final now = DateTime.now();
+    final todayTrx = transactions.where((t) =>
+      t.createdAt.year == now.year &&
+      t.createdAt.month == now.month &&
+      t.createdAt.day == now.day,
+    );
+    if (todayTrx.isNotEmpty) {
+      return todayTrx.fold<int>(0, (sum, t) => sum + t.total);
+    }
+    return 0;
+  }
+
+  int get todayTransactions {
+    if (transactions.isEmpty) return 0;
+    final now = DateTime.now();
+    final todayTrx = transactions.where((t) =>
+      t.createdAt.year == now.year &&
+      t.createdAt.month == now.month &&
+      t.createdAt.day == now.day,
+    );
+    if (todayTrx.isNotEmpty) {
+      return todayTrx.length;
+    }
+    return 0;
   }
 
   int get cartCount => cart.values.fold(0, (sum, line) => sum + line.quantity);
@@ -474,8 +513,6 @@ class PosStore extends ChangeNotifier {
       createdAt: now,
     );
     transactions.insert(0, transaction);
-    todaySales += grandTotal;
-    todayTransactions++;
     if (activeOrder != null) {
       pendingOrders.remove(activeOrder);
       final tableNumber = int.tryParse(
@@ -505,22 +542,7 @@ class PosStore extends ChangeNotifier {
       }
     }
     transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    _syncSalesStats();
     notifyListeners();
     return importedCount > 0 ? importedCount : newRecords.length;
-  }
-
-  void _syncSalesStats() {
-    if (transactions.isEmpty) return;
-    final now = DateTime.now();
-    final todayTrx = transactions.where((t) =>
-      t.createdAt.year == now.year &&
-      t.createdAt.month == now.month &&
-      t.createdAt.day == now.day
-    ).toList();
-    if (todayTrx.isNotEmpty) {
-      todaySales = todayTrx.fold(0, (sum, t) => sum + t.total);
-      todayTransactions = todayTrx.length;
-    }
   }
 }

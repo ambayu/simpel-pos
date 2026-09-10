@@ -17,28 +17,27 @@ class ReportExporter {
     final h = two(dateTime.hour);
     final min = two(dateTime.minute);
     final s = two(dateTime.second);
-    return '$y$m${d}_$h$min$s';
+    return '$y-$m-${d}_$h$min$s';
   }
 
   static String generateSummaryFileName({DateTime? now, String? suffix}) {
     final timestamp = formatTimestampForFileName(now ?? DateTime.now());
     if (suffix != null && suffix.trim().isNotEmpty) {
-      return 'laporan_rekap_penjualan_${suffix.trim()}_$timestamp.xlsx';
+      return 'Laporan_Rekap_Penjualan_${suffix.trim()}_$timestamp.xlsx';
     }
-    return 'laporan_rekap_penjualan_$timestamp.xlsx';
+    return 'Laporan_Rekap_Penjualan_$timestamp.xlsx';
   }
 
   static String generateDetailFileName({DateTime? now, String? suffix}) {
     final timestamp = formatTimestampForFileName(now ?? DateTime.now());
     if (suffix != null && suffix.trim().isNotEmpty) {
-      return 'laporan_detail_penjualan_${suffix.trim()}_$timestamp.xlsx';
+      return 'Laporan_Detail_Penjualan_${suffix.trim()}_$timestamp.xlsx';
     }
-    return 'laporan_detail_penjualan_$timestamp.xlsx';
+    return 'Laporan_Detail_Penjualan_$timestamp.xlsx';
   }
 
   static String generateTemplateFileName({DateTime? now}) {
-    final timestamp = formatTimestampForFileName(now ?? DateTime.now());
-    return 'template_import_transaksi_$timestamp.xlsx';
+    return 'Template_Import_Transaksi.xlsx';
   }
 
   /// Simpan bytes dan buka file secara cross-platform (Web, Desktop, Mobile)

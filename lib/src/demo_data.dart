@@ -994,14 +994,14 @@ List<SaleRecord> generateInitialTransactions() {
 
 Map<String, PendingOrder> generateInitialPendingOrders(List<MenuItem> menu) {
   final now = DateTime.now();
-  MenuItem find(String name) => menu.firstWhere((m) => m.name == name);
+  MenuItem find(String id) => menu.firstWhere((m) => m.id == id);
 
   return {
     'Meja 02': PendingOrder(
       label: 'Meja 02',
       items: {
-        '1': CartLine(item: find('Mie Goreng Special'), quantity: 1),
-        '10': CartLine(item: find('Es Teh Manis'), quantity: 1),
+        '1': CartLine(item: find('1'), quantity: 1),
+        '9': CartLine(item: find('9'), quantity: 1),
       },
       createdAt: now.subtract(const Duration(minutes: 35)),
       updatedAt: now.subtract(const Duration(minutes: 35)),
@@ -1009,8 +1009,8 @@ Map<String, PendingOrder> generateInitialPendingOrders(List<MenuItem> menu) {
     'Meja 03': PendingOrder(
       label: 'Meja 03',
       items: {
-        '2': CartLine(item: find('Ayam Kuluyuk'), quantity: 1),
-        '11': CartLine(item: find('Teh Tarik'), quantity: 1),
+        '2': CartLine(item: find('2'), quantity: 1),
+        '11': CartLine(item: find('11'), quantity: 1),
       },
       createdAt: now.subtract(const Duration(minutes: 70)),
       updatedAt: now.subtract(const Duration(minutes: 70)),
@@ -1018,7 +1018,7 @@ Map<String, PendingOrder> generateInitialPendingOrders(List<MenuItem> menu) {
     'Meja 05': PendingOrder(
       label: 'Meja 05',
       items: {
-        '5': CartLine(item: find('Cap Cai'), quantity: 1),
+        '5': CartLine(item: find('5'), quantity: 1),
       },
       createdAt: now.subtract(const Duration(minutes: 12)),
       updatedAt: now.subtract(const Duration(minutes: 12)),
@@ -1026,8 +1026,8 @@ Map<String, PendingOrder> generateInitialPendingOrders(List<MenuItem> menu) {
     'Meja 06': PendingOrder(
       label: 'Meja 06',
       items: {
-        '4': CartLine(item: find('Nasi Goreng'), quantity: 1),
-        '12': CartLine(item: find('Jus Jeruk'), quantity: 1),
+        '4': CartLine(item: find('4'), quantity: 1),
+        '10': CartLine(item: find('10'), quantity: 1),
       },
       createdAt: now.subtract(const Duration(minutes: 45)),
       updatedAt: now.subtract(const Duration(minutes: 45)),
@@ -1035,8 +1035,8 @@ Map<String, PendingOrder> generateInitialPendingOrders(List<MenuItem> menu) {
     'Meja 08': PendingOrder(
       label: 'Meja 08',
       items: {
-        '6': CartLine(item: find('Dumpling Ayam'), quantity: 1),
-        '10': CartLine(item: find('Es Teh Manis'), quantity: 1),
+        '6': CartLine(item: find('6'), quantity: 1),
+        '9': CartLine(item: find('9'), quantity: 1),
       },
       createdAt: now.subtract(const Duration(minutes: 20)),
       updatedAt: now.subtract(const Duration(minutes: 20)),
@@ -1044,9 +1044,9 @@ Map<String, PendingOrder> generateInitialPendingOrders(List<MenuItem> menu) {
     'Meja 09': PendingOrder(
       label: 'Meja 09',
       items: {
-        '2': CartLine(item: find('Ayam Kuluyuk'), quantity: 1),
-        '4': CartLine(item: find('Nasi Goreng'), quantity: 1),
-        '10': CartLine(item: find('Es Teh Manis'), quantity: 2),
+        '2': CartLine(item: find('2'), quantity: 1),
+        '4': CartLine(item: find('4'), quantity: 1),
+        '9': CartLine(item: find('9'), quantity: 2),
       },
       createdAt: now.subtract(const Duration(minutes: 90)),
       updatedAt: now.subtract(const Duration(minutes: 90)),
