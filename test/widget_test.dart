@@ -7,15 +7,19 @@ void main() {
   testWidgets('menampilkan quick login dan masuk ke dashboard', (tester) async {
     await tester.pumpWidget(const SimpelPosApp());
 
-    expect(find.text('Simpel POS'), findsWidgets);
-    expect(find.text('Pilih Role Petugas'), findsOneWidget);
+    expect(find.text('Mulai Sekarang'), findsOneWidget);
+    await tester.tap(find.text('Mulai Sekarang'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pilih Peran Anda'), findsOneWidget);
+    expect(find.text('Masuk sebagai Kasir'), findsOneWidget);
 
     final loginButtonFinder = find.text('Masuk sebagai Kasir');
     await tester.ensureVisible(loginButtonFinder);
     await tester.tap(loginButtonFinder);
     await tester.pumpAndSettle();
 
-    expect(find.text('Selamat pagi, Kasir 👋'), findsOneWidget);
+    expect(find.textContaining('Selamat Datang, Kasir'), findsOneWidget);
     expect(find.text('Buat Pesanan Baru'), findsOneWidget);
   });
 
@@ -28,19 +32,23 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const SimpelPosApp());
-    expect(find.text('Pilih Role Petugas'), findsOneWidget);
+    expect(find.text('Mulai Sekarang'), findsOneWidget);
+
+    await tester.tap(find.text('Mulai Sekarang'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pilih Peran Anda'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Masuk sebagai Kasir'));
     await tester.tap(find.text('Masuk sebagai Kasir'));
     await tester.pumpAndSettle();
 
     expect(find.text('Beranda'), findsWidgets);
+    expect(find.text('Meja'), findsWidgets);
     expect(find.text('Pesanan'), findsWidgets);
-    expect(find.text('Produk'), findsWidgets);
-    expect(find.text('Menu'), findsOneWidget);
+    expect(find.text('Laporan'), findsWidgets);
 
-    await tester.tap(find.text('Pesanan').last);
+    await tester.tap(find.text('Meja').last);
     await tester.pumpAndSettle();
-    expect(find.text('Pilih Meja'), findsOneWidget);
+    expect(find.text('Denah Meja'), findsOneWidget);
   });
 }

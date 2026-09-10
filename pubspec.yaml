@@ -40,6 +40,7 @@ dependencies:
   image_picker: ^1.2.3
   pdf: ^3.12.0
   printing: ^5.14.3
+  file_picker: ^12.2.0
 
 dev_dependencies:
   flutter_test:
@@ -63,10 +64,12 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/branding/
+    - assets/food/
+    - assets/roles/
+    - assets/lanskap_tiongkok_minimalis_dengan_bunga_sakura.png
+    - assets/latar_kuliner_tionghoa_dengan_bunga_sakura.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

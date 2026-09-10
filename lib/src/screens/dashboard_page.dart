@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../pos_store.dart';
+import '../theme/app_theme.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({
@@ -9,6 +10,7 @@ class DashboardPage extends StatelessWidget {
     required this.store,
     required this.onNewOrder,
   });
+
   final PosStore store;
   final VoidCallback onNewOrder;
 
@@ -17,114 +19,359 @@ class DashboardPage extends StatelessWidget {
     return AnimatedBuilder(
       animation: store,
       builder: (context, _) => ListView(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.zero,
         children: [
-          _Header(role: store.role),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 720;
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
+          _DashboardHeader(store: store, onNewOrder: onNewOrder),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Pesanan Terbaru',
+                        style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: onNewOrder,
+                      child: const Text('Lihat Semua'),
+                    ),
+                  ],
                 ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF316B58), Color(0xFF477F6C)],
+                const SizedBox(height: 6),
+                if (store.transactions.isEmpty && store.pendingOrders.isEmpty)
+                  const _EmptyOrders()
+                else ...[
+                  ...store.pendingOrders.values.map(
+                    (order) => _OrderTile(
+                      code: order.label,
+                      title: '${order.itemCount} item aktif',
+                      amount: order.total,
+                      time: order.elapsedLabel,
+                      pending: true,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: wide
-                    ? Row(
-                        children: [
-                          Expanded(child: _HeroCopy(onNewOrder: onNewOrder)),
-                          const Icon(
-                            Icons.point_of_sale_rounded,
-                            size: 82,
-                            color: Colors.white24,
-                          ),
-                        ],
-                      )
-                    : _HeroCopy(onNewOrder: onNewOrder),
-              );
-            },
+                  ...store.transactions
+                      .take(5)
+                      .map(
+                        (transaction) => _OrderTile(
+                          code:
+                              '#${transaction.id.substring(transaction.id.length - 4)}',
+                          title: transaction.items.isEmpty
+                              ? transaction.orderLabel
+                              : transaction.items.first.productName,
+                          amount: transaction.total,
+                          time: _clock(transaction.createdAt),
+                          pending: false,
+                        ),
+                      ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  static String _clock(DateTime value) =>
+      '${value.hour.toString().padLeft(2, '0')}:'
+      '${value.minute.toString().padLeft(2, '0')}';
+}
+
+class _DashboardHeader extends StatelessWidget {
+  const _DashboardHeader({required this.store, required this.onNewOrder});
+
+  final PosStore store;
+  final VoidCallback onNewOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      decoration: const BoxDecoration(color: AppColors.primary),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Selamat Datang, ${store.role}!',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _formatDate(now),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.white.withValues(alpha: .82),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .18),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
-              final count = constraints.maxWidth >= 900
-                  ? 4
-                  : constraints.maxWidth >= 360
-                  ? 2
-                  : 1;
+              final columns = constraints.maxWidth >= 720 ? 4 : 2;
               return GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: count,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: constraints.maxWidth < 360
-                    ? 2.8
-                    : constraints.maxWidth < 500
-                    ? 1.75
-                    : 2.05,
+                crossAxisCount: columns,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.95,
                 children: [
-                  _MetricCard(
-                    icon: Icons.payments_rounded,
-                    label: 'Omzet hari ini',
+                  _StatCard(
+                    label: 'Omzet Hari Ini',
                     value: rupiah(store.todaySales),
-                    tone: const Color(0xFF316B58),
+                    delta: '12%',
                   ),
-                  _MetricCard(
-                    icon: Icons.receipt_long_rounded,
-                    label: 'Transaksi',
+                  _StatCard(
+                    label: 'Total Transaksi',
                     value: '${store.todayTransactions}',
-                    tone: const Color(0xFFC67C4E),
+                    delta: '9%',
                   ),
-                  _MetricCard(
-                    icon: Icons.table_restaurant_rounded,
-                    label: 'Meja terisi',
-                    value: '${store.occupiedTables.length} / 16',
-                    tone: const Color(0xFF9B6B43),
+                  _StatCard(
+                    label: 'Estimasi Keuntungan',
+                    value: rupiah(store.estimatedProfit),
+                    delta: '15%',
                   ),
-                  const _MetricCard(
-                    icon: Icons.trending_up_rounded,
-                    label: 'Rata-rata order',
-                    value: 'Rp59.200',
-                    tone: Color(0xFF647A52),
+                  _StatCard(
+                    label: 'Meja Terisi',
+                    value:
+                        '${store.occupiedTables.length} / ${store.tables.length}',
+                    delta: store.tables.isEmpty
+                        ? '0%'
+                        : '${((store.occupiedTables.length / store.tables.length) * 100).round()}%',
+                    showArrow: false,
                   ),
                 ],
               );
             },
           ),
-          const SizedBox(height: 14),
-          Text(
-            'Aktivitas meja',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 7),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: store.occupiedTables
-                    .map(
-                      (table) => Chip(
-                        avatar: const Icon(Icons.table_bar_rounded, size: 18),
-                        label: Text(
-                          'Meja ${table.toString().padLeft(2, '0')} • Pesanan aktif',
-                        ),
-                        backgroundColor: const Color(0xFFFFE9DF),
-                        side: BorderSide.none,
-                      ),
-                    )
-                    .toList(),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onNewOrder,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryDark,
+                foregroundColor: Colors.white,
               ),
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              label: const Text('Buat Pesanan Baru'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatDate(DateTime value) {
+    const days = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+    return '${days[value.weekday - 1]}, ${value.day} '
+        '${months[value.month - 1]} ${value.year}';
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.delta,
+    this.showArrow = true,
+  });
+
+  final String label;
+  final String value;
+  final String delta;
+  final bool showArrow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              if (showArrow)
+                const Icon(
+                  Icons.arrow_upward_rounded,
+                  size: 11,
+                  color: AppColors.success,
+                ),
+              Text(
+                delta,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.success,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderTile extends StatelessWidget {
+  const _OrderTile({
+    required this.code,
+    required this.title,
+    required this.amount,
+    required this.time,
+    required this.pending,
+  });
+
+  final String code;
+  final String title;
+  final int amount;
+  final String time;
+  final bool pending;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 58,
+            child: Text(
+              code,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            rupiah(amount),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: pending ? AppColors.accentGold : AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -133,118 +380,36 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.role});
-  final String role;
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Selamat pagi, $role 👋',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Jumat, 28 Agustus 2026 • Kopi Senja',
-              style: TextStyle(color: Colors.black54),
-            ),
-          ],
-        ),
-      ),
-      IconButton.filledTonal(
-        onPressed: () {},
-        icon: const Icon(Icons.notifications_none_rounded),
-      ),
-    ],
-  );
-}
+class _EmptyOrders extends StatelessWidget {
+  const _EmptyOrders();
 
-class _HeroCopy extends StatelessWidget {
-  const _HeroCopy({required this.onNewOrder});
-  final VoidCallback onNewOrder;
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        'Siap melayani pesanan baru?',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 21,
-          fontWeight: FontWeight.w800,
-        ),
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
       ),
-      const SizedBox(height: 8),
-      Text(
-        'Pilih meja dan tekan menu. Cepat, simpel, tanpa ribet.',
-        style: TextStyle(color: Colors.white.withValues(alpha: .78)),
-      ),
-      const SizedBox(height: 12),
-      FilledButton.icon(
-        onPressed: onNewOrder,
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFFF2BD72),
-          foregroundColor: const Color(0xFF244D41),
-        ),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'Buat Pesanan Baru',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-      ),
-    ],
-  );
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.tone,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color tone;
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(11),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: const Column(
         children: [
-          CircleAvatar(
-            radius: 17,
-            backgroundColor: tone.withValues(alpha: .12),
-            child: Icon(icon, color: tone, size: 18),
+          Icon(
+            Icons.receipt_long_rounded,
+            size: 40,
+            color: AppColors.textMuted,
           ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ),
+          SizedBox(height: 10),
           Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.black54, fontSize: 11),
+            'Belum ada pesanan hari ini',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }

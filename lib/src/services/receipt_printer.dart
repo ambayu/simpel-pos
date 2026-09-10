@@ -3,6 +3,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../models.dart';
+import '../theme/app_theme.dart';
 
 class ReceiptPrinter {
   static Future<void> printReceipt(SaleRecord transaction) async {
@@ -23,7 +24,7 @@ class ReceiptPrinter {
             children: [
               pw.Center(
                 child: pw.Text(
-                  'SIMPEL POS',
+                  AppBrand.name.toUpperCase(),
                   style: pw.TextStyle(
                     fontSize: 13,
                     fontWeight: pw.FontWeight.bold,

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'pos_store.dart';
-import 'screens/login_page.dart';
+import 'screens/splash_page.dart';
+import 'theme/app_theme.dart';
 
 class SimpelPosApp extends StatefulWidget {
   const SimpelPosApp({super.key});
@@ -21,47 +22,11 @@ class _SimpelPosAppState extends State<SimpelPosApp> {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF316B58);
-    final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: Brightness.light,
-      surface: const Color(0xFFFFFBF6),
-    );
-
     return MaterialApp(
-      title: 'Simpel POS',
+      title: AppBrand.name,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: scheme,
-        scaffoldBackgroundColor: const Color(0xFFF8F5F0),
-        fontFamily: 'Segoe UI',
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0xFFEDE7DF)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(48, 46),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
-      home: LoginPage(store: store),
+      theme: AppTheme.build(),
+      home: SplashPage(store: store),
     );
   }
 }

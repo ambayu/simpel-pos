@@ -14,6 +14,18 @@ void main() {
     expect(store.menu.last.name, 'Es Teh Manis');
     expect(store.tables.length, tableCount + 1);
     expect(store.tables.last.seats, 4);
+
+    // Tambah meja custom dengan nomor dan status reservasi
+    store.addTable(seats: 6, number: 99, reservedUntil: '19:30');
+    expect(store.tables.any((t) => t.number == 99), isTrue);
+    expect(store.reservedTables[99], '19:30');
+    expect(store.statusOf(99).name, 'reserved');
+
+    // Hapus meja yang belum terisi
+    final deleted = store.deleteTable(99);
+    expect(deleted, isTrue);
+    expect(store.tables.any((t) => t.number == 99), isFalse);
+    expect(store.reservedTables.containsKey(99), isFalse);
   });
 
   test('pesanan disimpan dahulu dan meja menjadi terisi', () {

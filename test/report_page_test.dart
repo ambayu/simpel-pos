@@ -66,9 +66,51 @@ void main() {
         ),
       );
 
-      expect(find.text('Pilih Meja'), findsOneWidget);
-      expect(find.text('Meja 01'), findsOneWidget);
-      expect(find.byIcon(Icons.add_rounded), findsWidgets);
+      expect(find.text('Denah Meja'), findsOneWidget);
+      expect(find.text('Kosong'), findsWidgets);
+      expect(find.text('Take Away / Bungkus'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ReportPage menampilkan layout sesuai mockup Screen 10 (Laporan, 2x2 KPI, Grafik Penjualan)',
+    (tester) async {
+      final store = PosStore();
+
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: ReportPage(store: store)),
+        ),
+      );
+
+      // 1. Header Laporan
+      expect(find.text('Laporan'), findsOneWidget);
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+
+      // 2. 4 Kartu KPI (2x2 Grid)
+      expect(find.text('Total Omzet'), findsOneWidget);
+      expect(find.text('Total Transaksi'), findsOneWidget);
+      expect(find.text('Rata-rata Transaksi'), findsOneWidget);
+      expect(find.text('Estimasi Keuntungan'), findsOneWidget);
+      expect(find.text('12%'), findsOneWidget);
+      expect(find.text('9%'), findsOneWidget);
+      expect(find.text('5%'), findsOneWidget);
+      expect(find.text('15%'), findsOneWidget);
+
+      // Nilai KPI default store sesuai mockup (Rp 2.450.000, 48, Rp 51.042, Rp 980.000)
+      expect(find.text('Rp 2.450.000'), findsOneWidget);
+      expect(find.text('48'), findsOneWidget);
+      expect(find.text('Rp 51.042'), findsOneWidget);
+      expect(find.text('Rp 980.000'), findsOneWidget);
+
+      // 3. Grafik Penjualan
+      expect(find.text('Grafik Penjualan'), findsOneWidget);
+      expect(find.text('Lihat Detail'), findsOneWidget);
+      expect(find.byType(SalesBarChart), findsOneWidget);
     },
   );
 }

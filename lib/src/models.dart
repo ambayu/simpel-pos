@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+enum TableStatus { free, occupied, reserved }
+
 class MenuItem {
   const MenuItem({
     required this.id,
@@ -9,6 +11,10 @@ class MenuItem {
     required this.icon,
     required this.color,
     this.imagePath,
+    this.assetPath,
+    this.description = '',
+    this.variants = const <MenuVariant>[],
+    this.favorite = false,
   });
 
   final String id;
@@ -18,6 +24,10 @@ class MenuItem {
   final IconData icon;
   final Color color;
   final String? imagePath;
+  final String? assetPath;
+  final String description;
+  final List<MenuVariant> variants;
+  final bool favorite;
 
   MenuItem copyWith({
     String? id,
@@ -27,6 +37,10 @@ class MenuItem {
     IconData? icon,
     Color? color,
     String? imagePath,
+    String? assetPath,
+    String? description,
+    List<MenuVariant>? variants,
+    bool? favorite,
     bool clearImagePath = false,
   }) {
     return MenuItem(
@@ -37,23 +51,66 @@ class MenuItem {
       icon: icon ?? this.icon,
       color: color ?? this.color,
       imagePath: clearImagePath ? null : (imagePath ?? this.imagePath),
+      assetPath: assetPath ?? this.assetPath,
+      description: description ?? this.description,
+      variants: variants ?? this.variants,
+      favorite: favorite ?? this.favorite,
     );
   }
 }
 
+class MenuVariant {
+  const MenuVariant({required this.label, this.extraPrice = 0});
+
+  final String label;
+  final int extraPrice;
+}
+
 class CartLine {
-  CartLine({required this.item, this.quantity = 1});
+  CartLine({
+    required this.item,
+    this.quantity = 1,
+    this.variantLabel = '',
+    this.variantExtraPrice = 0,
+    this.note = '',
+  });
 
   final MenuItem item;
+  final String variantLabel;
+  final int variantExtraPrice;
   int quantity;
-  int get total => item.price * quantity;
+  String note;
+
+  int get unitPrice => item.price + variantExtraPrice;
+  int get total => unitPrice * quantity;
+
+  String get displayName =>
+      variantLabel.isEmpty ? item.name : '${item.name} ($variantLabel)';
+
+  static String buildKey(String productId, String variantLabel) =>
+      variantLabel.isEmpty ? productId : '$productId::$variantLabel';
+
+  String get key => buildKey(item.id, variantLabel);
+
+  CartLine clone() => CartLine(
+    item: item,
+    quantity: quantity,
+    variantLabel: variantLabel,
+    variantExtraPrice: variantExtraPrice,
+    note: note,
+  );
 }
 
 class CafeTable {
-  const CafeTable({required this.number, required this.seats});
+  const CafeTable({
+    required this.number,
+    required this.seats,
+    this.reservedUntil,
+  });
 
   final int number;
   final int seats;
+  final String? reservedUntil;
 }
 
 class SaleRecord {
@@ -62,24 +119,29 @@ class SaleRecord {
     required this.orderLabel,
     required this.items,
     required this.subtotal,
+    this.discount = 0,
     required this.tax,
     required this.total,
     required this.paymentMethod,
+    int? paidAmount,
     required this.cashier,
     required this.createdAt,
-  });
+  }) : paidAmount = paidAmount ?? total;
 
   final String id;
   final String orderLabel;
   final List<SaleItemRecord> items;
   final int subtotal;
+  final int discount;
   final int tax;
   final int total;
   final String paymentMethod;
+  final int paidAmount;
   final String cashier;
   final DateTime createdAt;
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
+  int get change => (paidAmount - total).clamp(0, paidAmount);
 }
 
 class SaleItemRecord {
@@ -112,14 +174,26 @@ class PendingOrder {
   int get subtotal => items.values.fold(0, (sum, line) => sum + line.total);
   int get tax => (subtotal * .1).round();
   int get total => subtotal + tax;
+
+  Duration get elapsed => DateTime.now().difference(createdAt);
+
+  String get elapsedLabel {
+    final minutes = elapsed.inMinutes;
+    final hours = minutes ~/ 60;
+    final remainder = minutes % 60;
+    return '${hours.toString().padLeft(2, '0')}:'
+        '${remainder.toString().padLeft(2, '0')}';
+  }
 }
 
 String rupiah(num value) {
-  final digits = value.round().toString();
+  final rounded = value.round();
+  final negative = rounded < 0;
+  final digits = rounded.abs().toString();
   final output = StringBuffer();
   for (var index = 0; index < digits.length; index++) {
     if (index > 0 && (digits.length - index) % 3 == 0) output.write('.');
     output.write(digits[index]);
   }
-  return 'Rp$output';
+  return '${negative ? '-' : ''}Rp $output';
 }

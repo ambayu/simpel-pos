@@ -1,11 +1,11 @@
 {
-    "name": "simpel_pos",
-    "short_name": "simpel_pos",
+    "name": "The Legend Hotpot",
+    "short_name": "Legend Hotpot",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Aplikasi kasir The Legend Hotpot.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
