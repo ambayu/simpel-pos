@@ -23,7 +23,92 @@ class SplashPage extends StatelessWidget {
         top: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final isLandscape = constraints.maxWidth > constraints.maxHeight;
             final compact = constraints.maxHeight < 720;
+
+            if (isLandscape) {
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    AppAssets.landingLandscape,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    errorBuilder: (_, _, _) =>
+                        const ColoredBox(color: AppColors.background),
+                  ),
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    right: constraints.maxWidth * 0.08,
+                    width: 320,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 150,
+                            height: 95,
+                            child: Image.asset(
+                              AppAssets.logo,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Icon(
+                                Icons.ramen_dining_rounded,
+                                color: AppColors.primary,
+                                size: 40,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontFamily: 'Segoe UI',
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                height: 1.05,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: 'The Legend ',
+                                  style: TextStyle(color: AppColors.textPrimary),
+                                ),
+                                TextSpan(
+                                  text: 'Hotpot',
+                                  style: TextStyle(color: AppColors.primary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            AppBrand.tagline,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: 240,
+                            child: FilledButton.icon(
+                              onPressed: () => _start(context),
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(Icons.chevron_right_rounded),
+                              label: const Text('Mulai Sekarang'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
             return Stack(
               fit: StackFit.expand,
               children: [

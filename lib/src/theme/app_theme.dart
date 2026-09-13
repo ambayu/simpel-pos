@@ -53,6 +53,7 @@ class AppAssets {
   static const rightFoodBowl = 'assets/branding/right_food_bowl.png';
   static const chinaLandscape =
       'assets/lanskap_tiongkok_minimalis_dengan_bunga_sakura.png';
+  static const landingLandscape = 'assets/landscape.png';
   static const culinaryBackground =
       'assets/latar_kuliner_tionghoa_dengan_bunga_sakura.png';
 
@@ -216,8 +217,8 @@ class AdminBackdrop extends StatelessWidget {
   const AdminBackdrop({
     super.key,
     required this.child,
-    this.imageOpacity = .28,
-    this.overlayOpacity = .55,
+    this.imageOpacity = 1.0,
+    this.overlayOpacity = 0.0,
   });
 
   final Widget child;
@@ -229,19 +230,51 @@ class AdminBackdrop extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Opacity(
-          opacity: imageOpacity,
-          child: Image.asset(
-            AppAssets.chinaLandscape,
-            fit: BoxFit.cover,
-            alignment: Alignment.bottomCenter,
-            errorBuilder: (_, _, _) =>
-                const ColoredBox(color: AppColors.background),
-          ),
+        Image.asset(
+          AppAssets.chinaLandscape,
+          fit: BoxFit.cover,
+          alignment: Alignment.bottomCenter,
+          errorBuilder: (_, _, _) =>
+              const ColoredBox(color: AppColors.background),
         ),
-        ColoredBox(color: Colors.white.withValues(alpha: overlayOpacity)),
+        if (overlayOpacity > 0)
+          ColoredBox(color: Colors.white.withValues(alpha: overlayOpacity)),
         child,
       ],
+    );
+  }
+}
+
+class HeaderCard extends StatelessWidget {
+  const HeaderCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(12),
+    this.margin = const EdgeInsets.fromLTRB(16, 10, 16, 8),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }

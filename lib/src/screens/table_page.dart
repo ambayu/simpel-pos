@@ -23,56 +23,60 @@ class TablePage extends StatelessWidget {
       animation: store,
       builder: (context, _) => Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-            child: Row(
+          HeaderCard(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Column(
               children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 30),
-                ),
-                const SizedBox(width: 4),
-                const Expanded(
-                  child: Text(
-                    'Denah Meja',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.textPrimary,
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(width: 30),
                     ),
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => TableFormPage(store: store),
+                    const SizedBox(width: 4),
+                    const Expanded(
+                      child: Text(
+                        'Denah Meja',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(42, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: const Text('Atur Meja'),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TableFormPage(store: store),
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(42, 38),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      icon: const Icon(Icons.tune_rounded, size: 18),
+                      label: const Text('Atur Meja'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _Legend(color: AppColors.statusFreeText, label: 'Kosong'),
-                _Legend(color: AppColors.statusOccupiedText, label: 'Terisi'),
-                _Legend(
-                  color: AppColors.statusReservedText,
-                  label: 'Reservasi',
+                const SizedBox(height: 8),
+                const Divider(height: 1, thickness: 1, color: AppColors.border),
+                const SizedBox(height: 8),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _Legend(color: AppColors.statusFreeText, label: 'Kosong'),
+                    _Legend(color: AppColors.statusOccupiedText, label: 'Terisi'),
+                    _Legend(
+                      color: AppColors.statusReservedText,
+                      label: 'Reservasi',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -393,15 +397,13 @@ class _TableFormPageState extends State<TableFormPage> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Atur Meja')),
       body: AdminBackdrop(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: AnimatedBuilder(
-              animation: widget.store,
-              builder: (context, _) => ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                children: [
-                  // Form Card
+        child: SafeArea(
+          child: AnimatedBuilder(
+            animation: widget.store,
+            builder: (context, _) => ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              children: [
+                // Form Card
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(18),
@@ -928,7 +930,6 @@ class _TableFormPageState extends State<TableFormPage> {
             ),
           ),
         ),
-      ),
     );
   }
 }

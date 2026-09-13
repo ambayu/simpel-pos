@@ -50,64 +50,75 @@ class _TransactionPageState extends State<TransactionPage> {
       }).toList();
 
       return ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         children: [
-          const Text(
-            'Riwayat Transaksi',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Riwayat pembayaran yang sudah diselesaikan',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Cari no. transaksi, meja, atau kasir...',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded),
-                      onPressed: () => setState(() => searchQuery = ''),
-                    )
-                  : null,
-            ),
-            onChanged: (v) => setState(() => searchQuery = v),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          HeaderCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Metode: ',
+                  'Riwayat Transaksi',
                   style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                ...['Semua', 'Tunai', 'QRIS', 'Kartu', 'E-Wallet'].map(
-                  (method) => Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      label: Text(method),
-                      selected: selectedPayment == method,
-                      onSelected: (_) =>
-                          setState(() => selectedPayment = method),
-                    ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Riwayat pembayaran yang sudah diselesaikan',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Cari no. transaksi, meja, atau kasir...',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded),
+                            onPressed: () => setState(() => searchQuery = ''),
+                          )
+                        : null,
+                  ),
+                  onChanged: (v) => setState(() => searchQuery = v),
+                ),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Metode: ',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      ...['Semua', 'Tunai', 'QRIS', 'Kartu', 'E-Wallet'].map(
+                        (method) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(method),
+                            selected: selectedPayment == method,
+                            onSelected: (_) =>
+                                setState(() => selectedPayment = method),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          if (filteredTransactions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                if (filteredTransactions.isEmpty)
             const _EmptyReport(
               message:
                   'Tidak ada transaksi yang cocok dengan filter atau pencarian.',
@@ -160,6 +171,9 @@ class _TransactionPageState extends State<TransactionPage> {
                 ),
               ),
             ),
+              ],
+            ),
+          ),
         ],
       );
     },
@@ -457,18 +471,51 @@ class _ReportPageState extends State<ReportPage> {
     );
   }
 
-  String _buildFilterSuffix() {
+  String? _buildFilterSuffix() {
     final parts = <String>[];
-    if (selectedPreset != DateRangePreset.all) {
-      parts.add(selectedPreset.name);
-    }
     if (selectedPayment != 'Semua') {
       parts.add(selectedPayment.toLowerCase());
     }
     if (selectedOrderType != 'Semua') {
       parts.add(selectedOrderType.toLowerCase().replaceAll(' ', '_'));
     }
-    return parts.join('_');
+    return parts.isEmpty ? null : parts.join('_');
+  }
+
+  ({DateTime start, DateTime end}) _getActiveDateRange(
+    List<SaleRecord> transactions,
+  ) {
+    final now = DateTime.now();
+    switch (selectedPreset) {
+      case DateRangePreset.today:
+        final today = DateTime(now.year, now.month, now.day);
+        return (start: today, end: today);
+      case DateRangePreset.last7Days:
+        final start = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(const Duration(days: 6));
+        final end = DateTime(now.year, now.month, now.day);
+        return (start: start, end: end);
+      case DateRangePreset.thisMonth:
+        final start = DateTime(now.year, now.month, 1);
+        final end = DateTime(now.year, now.month + 1, 0);
+        return (start: start, end: end);
+      case DateRangePreset.custom:
+        if (customDateRange != null) {
+          return (start: customDateRange!.start, end: customDateRange!.end);
+        }
+        final today = DateTime(now.year, now.month, now.day);
+        return (start: today, end: today);
+      case DateRangePreset.all:
+        if (transactions.isNotEmpty) {
+          final sorted = transactions.map((t) => t.createdAt).toList()..sort();
+          return (start: sorted.first, end: sorted.last);
+        }
+        final today = DateTime(now.year, now.month, now.day);
+        return (start: today, end: today);
+    }
   }
 
   Future<void> _exportSummary(List<SaleRecord> transactions) async {
@@ -480,8 +527,11 @@ class _ReportPageState extends State<ReportPage> {
     }
     setState(() => exportingSummary = true);
     try {
+      final range = _getActiveDateRange(transactions);
       final path = await ReportExporter.exportSummary(
         transactions,
+        startDate: range.start,
+        endDate: range.end,
         suffix: _buildFilterSuffix(),
       );
       if (!mounted) return;
@@ -510,8 +560,11 @@ class _ReportPageState extends State<ReportPage> {
     }
     setState(() => exportingDetail = true);
     try {
+      final range = _getActiveDateRange(transactions);
       final path = await ReportExporter.exportDetail(
         transactions,
+        startDate: range.start,
+        endDate: range.end,
         suffix: _buildFilterSuffix(),
       );
       if (!mounted) return;
@@ -616,108 +669,113 @@ class _ReportPageState extends State<ReportPage> {
 
       return ListView(
         controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        padding: const EdgeInsets.only(bottom: 28),
         children: [
-          // Top Bar (Laporan Title + Date Dropdown Pill)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Laporan',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.textPrimary,
+          HeaderCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Laporan',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: InkWell(
-                  onTap: _showDateFilterSelector,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            _currentDateRangeLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: InkWell(
+                    onTap: _showDateFilterSelector,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _currentDateRangeLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 18,
-                          color: AppColors.textSecondary,
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 2x2 Metric Cards Grid (Matching mockup screen 10)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 600;
+                    return GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: isWide ? 4 : 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: isWide ? 2.2 : 1.62,
+                      children: [
+                        _KpiCard(
+                          title: 'Total Omzet',
+                          value: rupiah(revenue),
+                          delta: transactionCount > 0 ? '+12%' : '-',
+                          showArrow: transactionCount > 0,
+                        ),
+                        _KpiCard(
+                          title: 'Total Transaksi',
+                          value: '$transactionCount',
+                          delta: transactionCount > 0 ? '+9%' : '-',
+                          showArrow: transactionCount > 0,
+                        ),
+                        _KpiCard(
+                          title: 'Rata-rata Transaksi',
+                          value: rupiah(average),
+                          delta: transactionCount > 0 ? '+5%' : '-',
+                          showArrow: transactionCount > 0,
+                        ),
+                        _KpiCard(
+                          title: 'Estimasi Keuntungan',
+                          value: rupiah(profit),
+                          delta: transactionCount > 0 ? '+15%' : '-',
+                          showArrow: transactionCount > 0,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
 
-          // 2x2 Metric Cards Grid (Matching mockup screen 10)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 600;
-              return GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: isWide ? 4 : 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: isWide ? 2.2 : 1.62,
-                children: [
-                  _KpiCard(
-                    title: 'Total Omzet',
-                    value: rupiah(revenue),
-                    delta: transactionCount > 0 ? '+12%' : '-',
-                    showArrow: transactionCount > 0,
-                  ),
-                  _KpiCard(
-                    title: 'Total Transaksi',
-                    value: '$transactionCount',
-                    delta: transactionCount > 0 ? '+9%' : '-',
-                    showArrow: transactionCount > 0,
-                  ),
-                  _KpiCard(
-                    title: 'Rata-rata Transaksi',
-                    value: rupiah(average),
-                    delta: transactionCount > 0 ? '+5%' : '-',
-                    showArrow: transactionCount > 0,
-                  ),
-                  _KpiCard(
-                    title: 'Estimasi Keuntungan',
-                    value: rupiah(profit),
-                    delta: transactionCount > 0 ? '+15%' : '-',
-                    showArrow: transactionCount > 0,
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-
-          // Grafik Penjualan Card
+                // Grafik Penjualan Card
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1126,6 +1184,9 @@ class _ReportPageState extends State<ReportPage> {
                 ),
               ),
             ),
+              ],
+            ),
+          ),
         ],
       );
     },
@@ -1447,12 +1508,16 @@ class _DataLine extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-            fontSize: 13,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              fontSize: 13,
+            ),
           ),
         ),
       ],

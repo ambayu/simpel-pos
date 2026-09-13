@@ -9,31 +9,57 @@ import 'package:path_provider/path_provider.dart';
 import '../models.dart';
 
 class ReportExporter {
-  static String formatTimestampForFileName(DateTime dateTime) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    final y = dateTime.year.toString();
-    final m = two(dateTime.month);
-    final d = two(dateTime.day);
-    final h = two(dateTime.hour);
-    final min = two(dateTime.minute);
-    final s = two(dateTime.second);
-    return '$y-$m-${d}_$h$min$s';
+  static String formatRangeForFileName(DateTime date) {
+    const months = [
+      'januari',
+      'februari',
+      'maret',
+      'april',
+      'mei',
+      'juni',
+      'juli',
+      'agustus',
+      'september',
+      'oktober',
+      'november',
+      'desember',
+    ];
+    final y = date.year;
+    final m = months[date.month - 1];
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 
-  static String generateSummaryFileName({DateTime? now, String? suffix}) {
-    final timestamp = formatTimestampForFileName(now ?? DateTime.now());
+  static String generateSummaryFileName({
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? now,
+    String? suffix,
+  }) {
+    final start = startDate ?? now ?? DateTime.now();
+    final end = endDate ?? now ?? DateTime.now();
+    final startStr = formatRangeForFileName(start);
+    final endStr = formatRangeForFileName(end);
     if (suffix != null && suffix.trim().isNotEmpty) {
-      return 'Laporan_Rekap_Penjualan_${suffix.trim()}_$timestamp.xlsx';
+      return 'rekap restoran $startStr sampai $endStr ${suffix.trim()}.xlsx';
     }
-    return 'Laporan_Rekap_Penjualan_$timestamp.xlsx';
+    return 'rekap restoran $startStr sampai $endStr.xlsx';
   }
 
-  static String generateDetailFileName({DateTime? now, String? suffix}) {
-    final timestamp = formatTimestampForFileName(now ?? DateTime.now());
+  static String generateDetailFileName({
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? now,
+    String? suffix,
+  }) {
+    final start = startDate ?? now ?? DateTime.now();
+    final end = endDate ?? now ?? DateTime.now();
+    final startStr = formatRangeForFileName(start);
+    final endStr = formatRangeForFileName(end);
     if (suffix != null && suffix.trim().isNotEmpty) {
-      return 'Laporan_Detail_Penjualan_${suffix.trim()}_$timestamp.xlsx';
+      return 'detail restoran $startStr sampai $endStr ${suffix.trim()}.xlsx';
     }
-    return 'Laporan_Detail_Penjualan_$timestamp.xlsx';
+    return 'detail restoran $startStr sampai $endStr.xlsx';
   }
 
   static String generateTemplateFileName({DateTime? now}) {
@@ -47,13 +73,7 @@ class ReportExporter {
     String dialogTitle = 'Simpan File Excel',
   }) async {
     if (kIsWeb) {
-      final savedUri = await FilePicker.saveFile(
-        dialogTitle: dialogTitle,
-        fileName: fileName,
-        bytes: bytes,
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      return savedUri?.toString() ?? fileName;
+      return fileName;
     }
 
     if (Platform.isAndroid || Platform.isIOS) {
@@ -94,6 +114,8 @@ class ReportExporter {
   /// Ekspor Rekap Ringkasan Transaksi Penjualan
   static Future<String> exportSummary(
     List<SaleRecord> transactions, {
+    DateTime? startDate,
+    DateTime? endDate,
     String? filterTitle,
     String? suffix,
   }) async {
@@ -183,10 +205,14 @@ class ReportExporter {
     }
 
     workbook.delete('Sheet1');
-    final bytes = workbook.save();
+    final fileName = generateSummaryFileName(
+      startDate: startDate,
+      endDate: endDate,
+      suffix: suffix,
+    );
+    final bytes = workbook.save(fileName: fileName);
     if (bytes == null) throw StateError('Gagal membuat file Excel Rekap');
 
-    final fileName = generateSummaryFileName(suffix: suffix);
     return saveAndOpenFile(
       bytes: Uint8List.fromList(bytes),
       fileName: fileName,
@@ -197,6 +223,8 @@ class ReportExporter {
   /// Ekspor Detail Rincian Item Penjualan
   static Future<String> exportDetail(
     List<SaleRecord> transactions, {
+    DateTime? startDate,
+    DateTime? endDate,
     String? filterTitle,
     String? suffix,
   }) async {
@@ -280,10 +308,14 @@ class ReportExporter {
     }
 
     workbook.delete('Sheet1');
-    final bytes = workbook.save();
+    final fileName = generateDetailFileName(
+      startDate: startDate,
+      endDate: endDate,
+      suffix: suffix,
+    );
+    final bytes = workbook.save(fileName: fileName);
     if (bytes == null) throw StateError('Gagal membuat file Excel Detail');
 
-    final fileName = generateDetailFileName(suffix: suffix);
     return saveAndOpenFile(
       bytes: Uint8List.fromList(bytes),
       fileName: fileName,
@@ -382,10 +414,10 @@ class ReportExporter {
     ]);
 
     workbook.delete('Sheet1');
-    final bytes = workbook.save();
+    final fileName = generateTemplateFileName();
+    final bytes = workbook.save(fileName: fileName);
     if (bytes == null) throw StateError('Gagal membuat template Excel');
 
-    final fileName = generateTemplateFileName();
     return saveAndOpenFile(
       bytes: Uint8List.fromList(bytes),
       fileName: fileName,

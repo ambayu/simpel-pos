@@ -45,8 +45,6 @@ class _ShellPageState extends State<ShellPage> {
       body: SafeArea(
         bottom: false,
         child: AdminBackdrop(
-          imageOpacity: currentIndex == 0 ? .34 : .28,
-          overlayOpacity: currentIndex == 0 ? .48 : .55,
           child: IndexedStack(index: currentIndex, children: pages),
         ),
       ),
@@ -94,56 +92,61 @@ class _MoreMenuPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       children: [
-        Row(
-          children: [
-            Image.asset(
-              AppAssets.logo,
-              width: 44,
-              height: 44,
-              errorBuilder: (_, _, _) => const CircleAvatar(
-                backgroundColor: AppColors.primary,
-                child: Icon(Icons.restaurant, color: Colors.white),
+        HeaderCard(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Image.asset(
+                AppAssets.logo,
+                width: 48,
+                height: 48,
+                errorBuilder: (_, _, _) => const CircleAvatar(
+                  backgroundColor: AppColors.primary,
+                  child: Icon(Icons.restaurant, color: Colors.white),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    AppBrand.name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.textPrimary,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      AppBrand.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Peran: ${store.role}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                    Text(
+                      'Peran: ${store.role}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 20),
-
-        _MenuTile(
-          icon: Icons.table_restaurant_rounded,
-          title: 'Atur & Kelola Meja',
-          subtitle: 'Atur nomor meja, kapasitas kursi, & reservasi',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => TableFormPage(store: store)),
-            );
-          },
-        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              _MenuTile(
+                icon: Icons.table_restaurant_rounded,
+                title: 'Atur & Kelola Meja',
+                subtitle: 'Atur nomor meja, kapasitas kursi, & reservasi',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => TableFormPage(store: store)),
+                  );
+                },
+              ),
         _MenuTile(
           icon: Icons.inventory_2_outlined,
           title: 'Kelola Produk & Menu',
@@ -204,6 +207,10 @@ class _MoreMenuPage extends StatelessWidget {
             onPressed: onLogout,
             icon: const Icon(Icons.logout_rounded),
             label: const Text('Ganti Akun / Keluar'),
+          ),
+        ),
+        const SizedBox(height: 24),
+            ],
           ),
         ),
       ],

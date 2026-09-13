@@ -396,6 +396,7 @@ class PosStore extends ChangeNotifier {
     required int price,
     String? imagePath,
     String description = '',
+    List<MenuVariant>? variants,
   }) {
     menu.add(
       MenuItem(
@@ -407,10 +408,11 @@ class PosStore extends ChangeNotifier {
         color: AppColors.primary,
         imagePath: imagePath,
         description: description.trim(),
-        variants: const [
-          MenuVariant(label: 'Original'),
-          MenuVariant(label: 'Pedas'),
-        ],
+        variants: variants ??
+            const [
+              MenuVariant(label: 'Original'),
+              MenuVariant(label: 'Pedas'),
+            ],
       ),
     );
     notifyListeners();
@@ -423,6 +425,7 @@ class PosStore extends ChangeNotifier {
     required int price,
     String? imagePath,
     String? description,
+    List<MenuVariant>? variants,
     bool clearImagePath = false,
   }) {
     final index = menu.indexWhere((item) => item.id == current.id);
@@ -433,6 +436,7 @@ class PosStore extends ChangeNotifier {
       price: price,
       imagePath: imagePath,
       description: description?.trim(),
+      variants: variants ?? current.variants,
       clearImagePath: clearImagePath,
     );
     notifyListeners();

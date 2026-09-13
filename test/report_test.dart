@@ -12,8 +12,24 @@ void main() {
       );
       final detailName = ReportExporter.generateDetailFileName(now: fixedDate);
 
-      expect(summaryName, 'Laporan_Rekap_Penjualan_2026-08-28_164530.xlsx');
-      expect(detailName, 'Laporan_Detail_Penjualan_2026-08-28_164530.xlsx');
+      expect(
+        summaryName,
+        'rekap restoran 2026-agustus-28 sampai 2026-agustus-28.xlsx',
+      );
+      expect(
+        detailName,
+        'detail restoran 2026-agustus-28 sampai 2026-agustus-28.xlsx',
+      );
+
+      // Rentang tanggal spesifik (contoh: 2026-april-12 sampai 2026-april-13)
+      final rangeSummary = ReportExporter.generateSummaryFileName(
+        startDate: DateTime(2026, 4, 12),
+        endDate: DateTime(2026, 4, 13),
+      );
+      expect(
+        rangeSummary,
+        'rekap restoran 2026-april-12 sampai 2026-april-13.xlsx',
+      );
     },
   );
 
@@ -27,7 +43,7 @@ void main() {
       );
       expect(
         summaryWithSuffix,
-        'Laporan_Rekap_Penjualan_hari_ini_qris_2026-08-28_164530.xlsx',
+        'rekap restoran 2026-agustus-28 sampai 2026-agustus-28 hari_ini_qris.xlsx',
       );
     },
   );
