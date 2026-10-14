@@ -188,13 +188,17 @@ class ReportPage extends StatefulWidget {
   State<ReportPage> createState() => _ReportPageState();
 }
 
-class _ReportPageState extends State<ReportPage> {
+class _ReportPageState extends State<ReportPage>
+    with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
+
+  late final AnimationController _fabAnimController;
+  late final Animation<double> _fabExpandAnim;
+  bool _isFabExpanded = false;
 
   bool exportingSummary = false;
   bool exportingDetail = false;
-  bool isUploading = false;
-  bool isDownloadingTemplate = false;
+  bool exportingPdf = false;
 
   DateRangePreset selectedPreset = DateRangePreset.today;
   DateTimeRange? customDateRange;
@@ -203,9 +207,73 @@ class _ReportPageState extends State<ReportPage> {
   String searchKeyword = '';
 
   @override
+  void initState() {
+    super.initState();
+    _fabAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _fabExpandAnim = CurvedAnimation(
+      parent: _fabAnimController,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeIn,
+    );
+  }
+
+  @override
   void dispose() {
+    _fabAnimController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _toggleFab() {
+    setState(() {
+      _isFabExpanded = !_isFabExpanded;
+      if (_isFabExpanded) {
+        _fabAnimController.forward();
+      } else {
+        _fabAnimController.reverse();
+      }
+    });
+  }
+
+  void _closeFab() {
+    if (_isFabExpanded) {
+      setState(() {
+        _isFabExpanded = false;
+        _fabAnimController.reverse();
+      });
+    }
+  }
+
+  void _showFilterBottomSheet() {
+    _closeFab();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _FilterBottomSheet(
+        selectedPreset: selectedPreset,
+        customDateRange: customDateRange,
+        selectedPayment: selectedPayment,
+        selectedOrderType: selectedOrderType,
+        searchKeyword: searchKeyword,
+        hasActiveFilter: _hasActiveFilter,
+        onPresetChanged: (preset) => setState(() => selectedPreset = preset),
+        onCustomDatePick: () {
+          Navigator.pop(ctx);
+          _pickCustomDateRange();
+        },
+        onPaymentChanged: (v) => setState(() => selectedPayment = v),
+        onOrderTypeChanged: (v) => setState(() => selectedOrderType = v),
+        onKeywordChanged: (v) => setState(() => searchKeyword = v),
+        onReset: () {
+          _resetFilter();
+          Navigator.pop(ctx);
+        },
+      ),
+    );
   }
 
   List<SaleRecord> _filterTransactions(List<SaleRecord> all) {
@@ -465,7 +533,7 @@ class _ReportPageState extends State<ReportPage> {
 
   void _scrollToDetail() {
     _scrollController.animateTo(
-      420,
+      200,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
     );
@@ -584,51 +652,140 @@ class _ReportPageState extends State<ReportPage> {
     }
   }
 
-  Future<void> _uploadAndImportExcel() async {
-    if (isUploading) return;
-    setState(() => isUploading = true);
-    try {
-      final records = await ReportExporter.pickAndImportTransactions();
-      if (!mounted) return;
-      if (records.isEmpty) return;
-      final count = widget.store.importTransactions(records);
-      if (!mounted) return;
+  Future<void> _printPdf(List<SaleRecord> transactions) async {
+    if (transactions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Berhasil mengimpor $count transaksi dari file Excel'),
-          backgroundColor: AppColors.primary,
-        ),
+        const SnackBar(content: Text('Tidak ada data transaksi untuk dicetak')),
+      );
+      return;
+    }
+    setState(() => exportingPdf = true);
+    try {
+      final range = _getActiveDateRange(transactions);
+      await ReportExporter.printPdf(
+        transactions,
+        startDate: range.start,
+        endDate: range.end,
+        suffix: _buildFilterSuffix(),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengimpor Excel: $error')),
+        SnackBar(content: Text('Gagal membuka cetak PDF: $error')),
       );
     } finally {
-      if (mounted) setState(() => isUploading = false);
+      if (mounted) setState(() => exportingPdf = false);
     }
   }
 
-  Future<void> _downloadTemplate() async {
-    if (isDownloadingTemplate) return;
-    setState(() => isDownloadingTemplate = true);
-    try {
-      final path = await ReportExporter.exportTemplate();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Template Excel tersimpan di: $path'),
-          backgroundColor: AppColors.primary,
+  Widget _buildCollapsibleFab(List<SaleRecord> filteredList, bool isProcessing) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Sub-menu collapses (Cetak PDF, Rekap Excel, Detail Excel, Filter)
+        if (_isFabExpanded || _fabAnimController.value > 0)
+          SizeTransition(
+            sizeFactor: _fabExpandAnim,
+            axisAlignment: 1.0,
+            child: FadeTransition(
+              opacity: _fabExpandAnim,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Opsi 1: Filter Cepat
+                    _SpeedDialItem(
+                      label: 'Filter',
+                      icon: Icons.tune_rounded,
+                      color: AppColors.accentGold,
+                      onTap: _showFilterBottomSheet,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Opsi 2: Cetak PDF
+                    _SpeedDialItem(
+                      label: 'Cetak PDF',
+                      icon: Icons.picture_as_pdf_rounded,
+                      color: AppColors.primary,
+                      onTap: () {
+                        _closeFab();
+                        _printPdf(filteredList);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Opsi 3: Download Rekap
+                    _SpeedDialItem(
+                      label: 'Download Rekap',
+                      icon: Icons.summarize_rounded,
+                      color: const Color(0xFF1E7E34),
+                      onTap: () {
+                        _closeFab();
+                        _exportSummary(filteredList);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Opsi 4: Download Detail
+                    _SpeedDialItem(
+                      label: 'Download Detail',
+                      icon: Icons.list_alt_rounded,
+                      color: const Color(0xFF0069D9),
+                      onTap: () {
+                        _closeFab();
+                        _exportDetail(filteredList);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // FAB Utama Berbentuk Logo / Icon Bulat Elegan
+        Tooltip(
+          message: _isFabExpanded ? 'Tutup Aksi' : 'Menu Laporan & Cetak',
+          child: Material(
+            key: const ValueKey('collapsible_fab_button'),
+            elevation: 5,
+            shadowColor: AppColors.primary.withValues(alpha: 0.4),
+            shape: const CircleBorder(),
+            color: AppColors.primary,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: isProcessing ? null : _toggleFab,
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: Center(
+                  child: isProcessing
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : AnimatedRotation(
+                          turns: _isFabExpanded ? 0.25 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(
+                            _isFabExpanded
+                                ? Icons.close_rounded
+                                : Icons.receipt_long_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
         ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengunduh template: $error')),
-      );
-    } finally {
-      if (mounted) setState(() => isDownloadingTemplate = false);
-    }
+      ],
+    );
   }
 
   Map<int, double> _calculateHourlySales(List<SaleRecord> list) {
@@ -667,14 +824,20 @@ class _ReportPageState extends State<ReportPage> {
       );
       final double chartMax = maxVal > 1000000 ? maxVal * 1.15 : 1000000;
 
-      return ListView(
+      final isProcessing = exportingSummary ||
+          exportingDetail ||
+          exportingPdf;
+
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        floatingActionButton: _buildCollapsibleFab(filteredList, isProcessing),
+        body: ListView(
         controller: _scrollController,
-        padding: const EdgeInsets.only(bottom: 28),
+        padding: const EdgeInsets.only(bottom: 90),
         children: [
           HeaderCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Laporan',
@@ -684,43 +847,46 @@ class _ReportPageState extends State<ReportPage> {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: InkWell(
-                    onTap: _showDateFilterSelector,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _currentDateRangeLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: InkWell(
+                      onTap: _showDateFilterSelector,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _currentDateRangeLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 18,
-                            color: AppColors.textSecondary,
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: AppColors.textSecondary,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -829,258 +995,19 @@ class _ReportPageState extends State<ReportPage> {
           ),
           const SizedBox(height: 20),
 
-          // Detail Section Header & Action Buttons
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 620;
-              final headerInfo = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Laporan Penjualan',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    'Unduh rekap & detail penjualan lengkap dengan filter',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              );
-
-              final isProcessing = exportingSummary ||
-                  exportingDetail ||
-                  isUploading ||
-                  isDownloadingTemplate;
-
-              final actionButtons = Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _HiddenActionExportButton(
-                    label: 'Download Rekap',
-                    icon: Icons.summarize_rounded,
-                    isPrimary: false,
-                    isLoading: isProcessing,
-                    onNormalTap: () => _exportSummary(filteredList),
-                    onHold3SecUpload: _uploadAndImportExcel,
-                    onHold5SecTemplate: _downloadTemplate,
-                  ),
-                  _HiddenActionExportButton(
-                    label: 'Download Detail',
-                    icon: Icons.list_alt_rounded,
-                    isPrimary: true,
-                    isLoading: isProcessing,
-                    onNormalTap: () => _exportDetail(filteredList),
-                    onHold3SecUpload: _uploadAndImportExcel,
-                    onHold5SecTemplate: _downloadTemplate,
-                  ),
-                ],
-              );
-
-              if (compact) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    headerInfo,
-                    const SizedBox(height: 10),
-                    actionButtons,
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: headerInfo),
-                  const SizedBox(width: 12),
-                  actionButtons,
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-
-          // Filter Container
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.tune_rounded,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Filter Laporan',
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (_hasActiveFilter)
-                        TextButton.icon(
-                          onPressed: _resetFilter,
-                          icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                          label: const Text('Reset Filter'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Search Bar
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Cari transaksi, produk, meja, kasir...',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      suffixIcon: searchKeyword.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 18),
-                              onPressed: () =>
-                                   setState(() => searchKeyword = ''),
-                            )
-                          : null,
-                    ),
-                    onChanged: (v) => setState(() => searchKeyword = v),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Periode Waktu Chips
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      const Text(
-                        'Periode: ',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      ...DateRangePreset.values.map((preset) {
-                        if (preset == DateRangePreset.custom) {
-                          final customLabel = customDateRange == null
-                              ? 'Kustom...'
-                              : '${customDateRange!.start.day}/${customDateRange!.start.month} - ${customDateRange!.end.day}/${customDateRange!.end.month}';
-                          return ActionChip(
-                            avatar: const Icon(
-                              Icons.calendar_today_rounded,
-                              size: 14,
-                            ),
-                            label: Text(customLabel),
-                            backgroundColor:
-                                selectedPreset == DateRangePreset.custom
-                                ? AppColors.primarySoft
-                                : null,
-                            side: BorderSide(
-                              color: selectedPreset == DateRangePreset.custom
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                            ),
-                            onPressed: _pickCustomDateRange,
-                          );
-                        }
-                        return ChoiceChip(
-                          label: Text(preset.label),
-                          selected: selectedPreset == preset,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => selectedPreset = preset);
-                            }
-                          },
-                        );
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Metode Bayar & Tipe Pesanan
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: [
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          const Text(
-                            'Metode: ',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          ...[
-                            'Semua',
-                            'Tunai',
-                            'QRIS',
-                            'Kartu',
-                            'E-Wallet',
-                          ].map(
-                            (method) => ChoiceChip(
-                              label: Text(method),
-                              selected: selectedPayment == method,
-                              onSelected: (_) =>
-                                  setState(() => selectedPayment = method),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          const Text(
-                            'Tipe: ',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          ...['Semua', 'Meja', 'Take Away'].map(
-                            (type) => ChoiceChip(
-                              label: Text(type),
-                              selected: selectedOrderType == type,
-                              onSelected: (_) =>
-                                  setState(() => selectedOrderType = type),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+          // Detail Section Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Daftar Transaksi (${filteredList.length})',
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
               ),
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Ringkasan Data Terfilter Card
+          const SizedBox(height: 8),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -1188,6 +1115,7 @@ class _ReportPageState extends State<ReportPage> {
             ),
           ),
         ],
+        ),
       );
     },
   );
@@ -1525,6 +1453,326 @@ class _DataLine extends StatelessWidget {
   );
 }
 
+class _SpeedDialItem extends StatelessWidget {
+  const _SpeedDialItem({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label pill dengan background surface & shadow halus
+        Material(
+          elevation: 3,
+          shadowColor: Colors.black.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          color: AppColors.surface,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Mini FAB bulat icon
+        Material(
+          elevation: 3,
+          shadowColor: color.withValues(alpha: 0.3),
+          shape: const CircleBorder(),
+          color: color,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 42,
+              height: 42,
+              child: Center(
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterBottomSheet extends StatefulWidget {
+  const _FilterBottomSheet({
+    required this.selectedPreset,
+    required this.customDateRange,
+    required this.selectedPayment,
+    required this.selectedOrderType,
+    required this.searchKeyword,
+    required this.hasActiveFilter,
+    required this.onPresetChanged,
+    required this.onCustomDatePick,
+    required this.onPaymentChanged,
+    required this.onOrderTypeChanged,
+    required this.onKeywordChanged,
+    required this.onReset,
+  });
+
+  final DateRangePreset selectedPreset;
+  final DateTimeRange? customDateRange;
+  final String selectedPayment;
+  final String selectedOrderType;
+  final String searchKeyword;
+  final bool hasActiveFilter;
+  final ValueChanged<DateRangePreset> onPresetChanged;
+  final VoidCallback onCustomDatePick;
+  final ValueChanged<String> onPaymentChanged;
+  final ValueChanged<String> onOrderTypeChanged;
+  final ValueChanged<String> onKeywordChanged;
+  final VoidCallback onReset;
+
+  @override
+  State<_FilterBottomSheet> createState() => _FilterBottomSheetState();
+}
+
+class _FilterBottomSheetState extends State<_FilterBottomSheet> {
+  late DateRangePreset _preset;
+  late String _payment;
+  late String _orderType;
+  late String _keyword;
+
+  @override
+  void initState() {
+    super.initState();
+    _preset = widget.selectedPreset;
+    _payment = widget.selectedPayment;
+    _orderType = widget.selectedOrderType;
+    _keyword = widget.searchKeyword;
+  }
+
+  void _applyAndClose() {
+    widget.onPresetChanged(_preset);
+    widget.onPaymentChanged(_payment);
+    widget.onOrderTypeChanged(_orderType);
+    widget.onKeywordChanged(_keyword);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 38,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.tune_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Filter Laporan',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (widget.hasActiveFilter)
+                TextButton.icon(
+                  onPressed: widget.onReset,
+                  icon: const Icon(Icons.restart_alt_rounded, size: 15),
+                  label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: 14),
+
+          // Search
+          TextField(
+            controller: TextEditingController(text: _keyword)
+              ..selection = TextSelection.collapsed(offset: _keyword.length),
+            decoration: InputDecoration(
+              hintText: 'Cari transaksi, produk, meja, kasir...',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              suffixIcon: _keyword.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      onPressed: () => setState(() => _keyword = ''),
+                    )
+                  : null,
+            ),
+            onChanged: (v) => setState(() => _keyword = v),
+          ),
+          const SizedBox(height: 14),
+
+          // Periode chips
+          const Text(
+            'Periode',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: DateRangePreset.values.map((preset) {
+              if (preset == DateRangePreset.custom) {
+                final customLabel = widget.customDateRange == null
+                    ? 'Kustom...'
+                    : '${widget.customDateRange!.start.day}/${widget.customDateRange!.start.month} - ${widget.customDateRange!.end.day}/${widget.customDateRange!.end.month}';
+                return ActionChip(
+                  avatar: const Icon(Icons.calendar_today_rounded, size: 14),
+                  label: Text(customLabel),
+                  backgroundColor: _preset == DateRangePreset.custom
+                      ? AppColors.primarySoft
+                      : null,
+                  side: BorderSide(
+                    color: _preset == DateRangePreset.custom
+                        ? AppColors.primary
+                        : AppColors.border,
+                  ),
+                  onPressed: widget.onCustomDatePick,
+                );
+              }
+              return ChoiceChip(
+                label: Text(preset.label),
+                selected: _preset == preset,
+                onSelected: (selected) {
+                  if (selected) setState(() => _preset = preset);
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+
+          // Metode bayar
+          const Text(
+            'Metode Bayar',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: ['Semua', 'Tunai', 'QRIS', 'Kartu', 'E-Wallet']
+                .map(
+                  (method) => ChoiceChip(
+                    label: Text(method),
+                    selected: _payment == method,
+                    onSelected: (_) => setState(() => _payment = method),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 14),
+
+          // Tipe pesanan
+          const Text(
+            'Tipe Pesanan',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: ['Semua', 'Meja', 'Take Away']
+                .map(
+                  (type) => ChoiceChip(
+                    label: Text(type),
+                    selected: _orderType == type,
+                    onSelected: (_) => setState(() => _orderType = type),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 20),
+
+          // Tombol Terapkan
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _applyAndClose,
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: const Text('Terapkan Filter'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _EmptyReport extends StatelessWidget {
   const _EmptyReport({required this.message});
   final String message;

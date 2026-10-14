@@ -5,6 +5,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../models.dart';
 
@@ -62,6 +65,39 @@ class ReportExporter {
     return 'detail restoran $startStr sampai $endStr.xlsx';
   }
 
+  static String generatePdfFileName({
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? now,
+    String? suffix,
+  }) {
+    final start = startDate ?? now ?? DateTime.now();
+    final end = endDate ?? now ?? DateTime.now();
+    const months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    if (start.year == end.year && start.month == end.month) {
+      return '${months[start.month - 1]}-${start.year}.pdf';
+    }
+    final startStr = formatRangeForFileName(start);
+    final endStr = formatRangeForFileName(end);
+    if (suffix != null && suffix.trim().isNotEmpty) {
+      return 'Laporan-The-Legend-Hotpot-$startStr-sampai-$endStr-${suffix.trim()}.pdf';
+    }
+    return 'Laporan-The-Legend-Hotpot-$startStr-sampai-$endStr.pdf';
+  }
+
   static String generateTemplateFileName({DateTime? now}) {
     return 'Template_Import_Transaksi.xlsx';
   }
@@ -71,6 +107,7 @@ class ReportExporter {
     required Uint8List bytes,
     required String fileName,
     String dialogTitle = 'Simpan File Excel',
+    String? mimeType,
   }) async {
     if (kIsWeb) {
       return fileName;
@@ -86,11 +123,14 @@ class ReportExporter {
 
     // Windows / macOS / Linux Desktop
     try {
+      final defaultMime = fileName.endsWith('.pdf')
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       final savedUri = await FilePicker.saveFile(
         dialogTitle: dialogTitle,
         fileName: fileName,
         bytes: bytes,
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimeType: mimeType ?? defaultMime,
       );
 
       if (savedUri != null) {
@@ -233,7 +273,7 @@ class ReportExporter {
 
     sheet.appendRow([
       TextCellValue('No.'),
-      TextCellValue('No. Transaksi'),
+      TextCellValue('Kode Struk'),
       TextCellValue('Tanggal & Waktu'),
       TextCellValue('Pesanan / Meja'),
       TextCellValue('Kasir'),
@@ -242,17 +282,31 @@ class ReportExporter {
       TextCellValue('Qty'),
       TextCellValue('Harga Satuan (Rp)'),
       TextCellValue('Total Item (Rp)'),
+      TextCellValue('Diskon (Rp)'),
+      TextCellValue('Pajak (Rp)'),
+      TextCellValue('Total (Rp)'),
     ]);
 
     var rowNumber = 1;
     var totalQuantity = 0;
     var totalItemValue = 0;
+    var totalDiscount = 0;
+    var totalTax = 0;
+    var grandTotal = 0;
     final productSummary = <String, ({int qty, int revenue})>{};
 
     for (final t in transactions) {
+      final itemCount = t.items.isEmpty ? 1 : t.items.length;
+      final allocatedTax = (t.tax / itemCount).round();
+      final allocatedDiscount = (t.discount / itemCount).round();
+
       for (final item in t.items) {
         totalQuantity += item.quantity;
         totalItemValue += item.total;
+        totalDiscount += allocatedDiscount;
+        totalTax += allocatedTax;
+        final lineTotal = item.total - allocatedDiscount + allocatedTax;
+        grandTotal += lineTotal;
 
         final existing =
             productSummary[item.productName] ?? (qty: 0, revenue: 0);
@@ -272,6 +326,9 @@ class ReportExporter {
           IntCellValue(item.quantity),
           IntCellValue(item.unitPrice),
           IntCellValue(item.total),
+          IntCellValue(allocatedDiscount),
+          IntCellValue(allocatedTax),
+          IntCellValue(lineTotal),
         ]);
       }
     }
@@ -287,6 +344,9 @@ class ReportExporter {
       IntCellValue(totalQuantity),
       TextCellValue(''),
       IntCellValue(totalItemValue),
+      IntCellValue(totalDiscount),
+      IntCellValue(totalTax),
+      IntCellValue(grandTotal),
     ]);
 
     final productSheet = workbook['Rekap Penjualan Produk'];
@@ -297,7 +357,7 @@ class ReportExporter {
     ]);
 
     final sortedProducts = productSummary.entries.toList()
-      ..sort((a, b) => b.value.qty.compareTo(a.value.qty));
+      ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
 
     for (final entry in sortedProducts) {
       productSheet.appendRow([
@@ -321,6 +381,441 @@ class ReportExporter {
       fileName: fileName,
       dialogTitle: 'Simpan Laporan Detail Excel',
     );
+  }
+
+  /// Ekspor Laporan Lengkap PDF (sesuai format cetak The Legend Hotpot landscape)
+  static Future<String> exportPdf(
+    List<SaleRecord> transactions, {
+    DateTime? startDate,
+    DateTime? endDate,
+    String? suffix,
+  }) async {
+    final pdfBytes = await generateReportPdfBytes(
+      transactions,
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    final fileName = generatePdfFileName(
+      startDate: startDate,
+      endDate: endDate,
+      suffix: suffix,
+    );
+
+    return saveAndOpenFile(
+      bytes: pdfBytes,
+      fileName: fileName,
+      dialogTitle: 'Simpan Laporan PDF',
+      mimeType: 'application/pdf',
+    );
+  }
+
+  /// Cetak / Tampilkan dialog print preview PDF secara interaktif
+  static Future<void> printPdf(
+    List<SaleRecord> transactions, {
+    DateTime? startDate,
+    DateTime? endDate,
+    String? suffix,
+  }) async {
+    final fileName = generatePdfFileName(
+      startDate: startDate,
+      endDate: endDate,
+      suffix: suffix,
+    );
+
+    await Printing.layoutPdf(
+      name: fileName,
+      format: PdfPageFormat.a4.landscape,
+      onLayout: (format) async => generateReportPdfBytes(
+        transactions,
+        startDate: startDate,
+        endDate: endDate,
+      ),
+    );
+  }
+
+  /// Menghasilkan Uint8List dokumen PDF sesuai struktur file Mei-2026.pdf
+  static Future<Uint8List> generateReportPdfBytes(
+    List<SaleRecord> transactions, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final pdf = pw.Document();
+
+    final detailRows = <List<String>>[];
+    var rowNo = 1;
+    var totalQty = 0;
+    var totalPendapatanSebelumPajak = 0;
+    var totalPajak = 0;
+    final productSummary = <String, ({int qty, int revenue})>{};
+
+    final sortedTransactions = List<SaleRecord>.from(transactions)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    for (final t in sortedTransactions) {
+      final itemCount = t.items.isEmpty ? 1 : t.items.length;
+      final allocatedTax = (t.tax / itemCount).round();
+      final allocatedDiscount = (t.discount / itemCount).round();
+
+      for (final item in t.items) {
+        final lineSubtotal = item.total;
+        final lineTax = allocatedTax;
+        final lineDiscount = allocatedDiscount;
+        final lineTotal = lineSubtotal - lineDiscount + lineTax;
+
+        totalQty += item.quantity;
+        totalPendapatanSebelumPajak += lineSubtotal;
+        totalPajak += lineTax;
+
+        final existing = productSummary[item.productName] ?? (qty: 0, revenue: 0);
+        productSummary[item.productName] = (
+          qty: existing.qty + item.quantity,
+          revenue: existing.revenue + lineSubtotal,
+        );
+
+        detailRows.add([
+          '${rowNo++}',
+          t.id,
+          _formatDateTime(t.createdAt),
+          t.orderLabel,
+          t.cashier,
+          t.paymentMethod == 'Tunai' ? 'Cash' : t.paymentMethod,
+          item.productName,
+          '${item.quantity}',
+          _formatNumber(item.unitPrice),
+          _formatNumber(lineSubtotal),
+          _formatNumber(lineDiscount),
+          _formatNumber(lineTax),
+          _formatNumber(lineTotal),
+        ]);
+      }
+    }
+
+    const detailHeaders = [
+      'No.',
+      'Kode Struk',
+      'Tanggal & Waktu',
+      'Pesanan / Meja',
+      'Kasir',
+      'Metode Bayar',
+      'Nama Produk',
+      'Qty',
+      'Harga Satuan (Rp)',
+      'Total Item (Rp)',
+      'Diskon (Rp)',
+      'Pajak (Rp)',
+      'Total (Rp)',
+    ];
+
+    const detailWidths = <int, pw.TableColumnWidth>{
+      0: pw.FixedColumnWidth(22),
+      1: pw.FixedColumnWidth(52),
+      2: pw.FixedColumnWidth(76),
+      3: pw.FixedColumnWidth(58),
+      4: pw.FixedColumnWidth(44),
+      5: pw.FixedColumnWidth(56),
+      6: pw.FlexColumnWidth(),
+      7: pw.FixedColumnWidth(26),
+      8: pw.FixedColumnWidth(66),
+      9: pw.FixedColumnWidth(66),
+      10: pw.FixedColumnWidth(48),
+      11: pw.FixedColumnWidth(50),
+      12: pw.FixedColumnWidth(60),
+    };
+
+    final headerBgColor = PdfColor.fromHex('#D8E9F6');
+    final rowBorderColor = PdfColor.fromHex('#D0DCE5');
+
+    // Halaman Detail Transaksi
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        header: (context) {
+          return pw.Container(
+            color: headerBgColor,
+            padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+            child: pw.Table(
+              columnWidths: detailWidths,
+              children: [
+                pw.TableRow(
+                  children: detailHeaders.map((h) {
+                    final isNumber = h.contains('(Rp)') || h == 'Qty' || h == 'No.';
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 2),
+                      child: pw.Text(
+                        h,
+                        textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
+                        style: pw.TextStyle(
+                          fontSize: 6.2,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          );
+        },
+        build: (context) {
+          return [
+            pw.Table(
+              columnWidths: detailWidths,
+              children: detailRows.map((row) {
+                return pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border(
+                      bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
+                    ),
+                  ),
+                  children: List.generate(row.length, (idx) {
+                    final cell = row[idx];
+                    final isNumber = idx == 0 || idx == 7 || idx >= 8;
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 2.2, horizontal: 2),
+                      child: pw.Text(
+                        cell,
+                        textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
+                        style: const pw.TextStyle(fontSize: 6.0),
+                      ),
+                    );
+                  }),
+                );
+              }).toList(),
+            ),
+          ];
+        },
+      ),
+    );
+
+    // Hitung judul bulan & tahun untuk rekap produk
+    final refDate = startDate ?? (sortedTransactions.isNotEmpty ? sortedTransactions.first.createdAt : DateTime.now());
+    const monthNames = [
+      'JANUARI',
+      'FEBRUARI',
+      'MARET',
+      'APRIL',
+      'MEI',
+      'JUNI',
+      'JULI',
+      'AGUSTUS',
+      'SEPTEMBER',
+      'OKTOBER',
+      'NOVEMBER',
+      'DESEMBER',
+    ];
+    final periodTitle = 'BULAN ${monthNames[refDate.month - 1]} ${refDate.year}';
+
+    final sortedProductList = productSummary.entries.toList()
+      ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
+
+    final rekapRows = <List<String>>[];
+    for (var i = 0; i < sortedProductList.length; i++) {
+      final entry = sortedProductList[i];
+      rekapRows.add([
+        '${i + 1}',
+        entry.key,
+        '${entry.value.qty}',
+        'Rp${_formatNumber(entry.value.revenue)}',
+      ]);
+    }
+
+    const rekapWidths = <int, pw.TableColumnWidth>{
+      0: pw.FixedColumnWidth(40),
+      1: pw.FlexColumnWidth(),
+      2: pw.FixedColumnWidth(140),
+      3: pw.FixedColumnWidth(180),
+    };
+
+    final totalSetelahPajak = totalPendapatanSebelumPajak + totalPajak;
+
+    // Halaman Rekap Produk
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        header: (context) {
+          if (context.pageNumber == context.pagesCount) {
+            // Biarkan header default
+          }
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              if (context.pageNumber == 1) ...[
+                pw.Center(
+                  child: pw.Text(
+                    'LAPORAN THE LEGEND HOT POT',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Center(
+                  child: pw.Text(
+                    periodTitle,
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'REKAP PENJUALAN PRODUK',
+                  style: pw.TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+              ],
+              pw.Container(
+                color: headerBgColor,
+                padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: pw.Table(
+                  columnWidths: rekapWidths,
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        pw.Text(
+                          'No.',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.Text(
+                          'Nama Produk',
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.Text(
+                          'Total Terjual (Qty)',
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.Text(
+                          'Total Pendapatan (Rp)',
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+        build: (context) {
+          return [
+            pw.Table(
+              columnWidths: rekapWidths,
+              children: rekapRows.map((r) {
+                return pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border(
+                      bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
+                    ),
+                  ),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                      child: pw.Text(r[0], textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 7)),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                      child: pw.Text(r[1], style: const pw.TextStyle(fontSize: 7)),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                      child: pw.Text(r[2], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                      child: pw.Text(r[3], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+            pw.SizedBox(height: 12),
+            pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: rowBorderColor, width: 0.5),
+              ),
+              padding: const pw.EdgeInsets.all(6),
+              child: pw.Column(
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'TOTAL PENDAPATAN (SEBELUM PAJAK)',
+                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.Row(
+                        children: [
+                          pw.Text(
+                            '$totalQty',
+                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.SizedBox(width: 80),
+                          pw.Text(
+                            'Rp${_formatNumber(totalPendapatanSebelumPajak)}',
+                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  pw.Divider(thickness: 0.4, color: rowBorderColor),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'TOTAL PAJAK 10%',
+                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.Text(
+                        'Rp${_formatNumber(totalPajak)}',
+                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  pw.Divider(thickness: 0.4, color: rowBorderColor),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'TOTAL SETELAH PAJAK',
+                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.Text(
+                        'Rp${_formatNumber(totalSetelahPajak)}',
+                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ];
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  static String _formatNumber(int value) {
+    final digits = value.abs().toString();
+    final output = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) output.write('.');
+      output.write(digits[i]);
+    }
+    return '${value < 0 ? '-' : ''}$output';
   }
 
   /// Ekspor Template Excel untuk Import Transaksi

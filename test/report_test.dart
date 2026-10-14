@@ -45,6 +45,12 @@ void main() {
         summaryWithSuffix,
         'rekap restoran 2026-agustus-28 sampai 2026-agustus-28 hari_ini_qris.xlsx',
       );
+
+      final pdfName = ReportExporter.generatePdfFileName(
+        startDate: DateTime(2026, 5, 1),
+        endDate: DateTime(2026, 5, 31),
+      );
+      expect(pdfName, 'Mei-2026.pdf');
     },
   );
 

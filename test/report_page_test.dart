@@ -41,13 +41,13 @@ void main() {
         ),
       );
 
-      expect(find.text('Laporan Penjualan'), findsOneWidget);
-      expect(find.text('Download Rekap'), findsOneWidget);
-      expect(find.text('Download Detail'), findsOneWidget);
-      expect(find.text('Filter Laporan'), findsOneWidget);
-      expect(find.text('Hari Ini'), findsOneWidget);
-      expect(find.text('QRIS'), findsWidgets);
-      expect(find.textContaining('TRX-TEST-001'), findsWidgets);
+      expect(find.text('Laporan Penjualan'), findsNothing);
+      expect(find.byKey(const ValueKey('collapsible_fab_button')), findsOneWidget);
+      // Filter (Periode/Metode chips) dipindah ke bottom sheet
+      expect(find.text('Hari Ini'), findsNothing);
+      // KPI cards tampil
+      expect(find.text('Total Omzet'), findsOneWidget);
+      expect(find.text('Grafik Penjualan'), findsOneWidget);
     },
   );
 
@@ -136,7 +136,7 @@ void main() {
   );
 
   testWidgets(
-    'Tombol download rekap merespons ketukan biasa untuk ekspor',
+    'Tombol collapsible FAB menampilkan sub-menu aksi cetak, unduh, dan filter',
     (tester) async {
       final store = PosStore();
 
@@ -150,50 +150,23 @@ void main() {
         ),
       );
 
-      final rekapFinder = find.text('Download Rekap');
-      expect(rekapFinder, findsOneWidget);
+      final fabFinder = find.byKey(const ValueKey('collapsible_fab_button'));
+      expect(fabFinder, findsOneWidget);
 
-      await tester.tap(rekapFinder);
-      await tester.pump();
+      // Sebelum diklik, sub-menu belum terlihat
+      expect(find.text('Filter'), findsNothing);
+      expect(find.text('Cetak PDF'), findsNothing);
 
-      // Tombol kembali normal atau menampilkan snackbar
-      expect(find.text('Download Rekap'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'Tahan tombol download selama 3 detik memicu upload dan tahan 5 detik memicu download template',
-    (tester) async {
-      final store = PosStore();
-
-      tester.view.physicalSize = const Size(1200, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: ReportPage(store: store)),
-        ),
-      );
-
-      final rekapFinder = find.text('Download Rekap');
-      expect(rekapFinder, findsOneWidget);
-
-      // 1. Uji tahan 3 detik (trigger upload / file picker)
-      final gesture3s = await tester.startGesture(tester.getCenter(rekapFinder));
-      await tester.pump(const Duration(seconds: 3, milliseconds: 200));
-      await gesture3s.up();
+      // Klik FAB untuk membuka collapse speed dial
+      await tester.tap(fabFinder);
       await tester.pumpAndSettle();
 
+      // Memastikan sub-menu aksi muncul secara collapsible
+      expect(find.text('Filter'), findsOneWidget);
+      expect(find.text('Cetak PDF'), findsOneWidget);
       expect(find.text('Download Rekap'), findsOneWidget);
-
-      // 2. Uji tahan 5 detik (trigger template download)
-      final gesture5s = await tester.startGesture(tester.getCenter(rekapFinder));
-      await tester.pump(const Duration(seconds: 5, milliseconds: 200));
-      await gesture5s.up();
-      await tester.pumpAndSettle();
-
-      expect(find.text('Download Rekap'), findsOneWidget);
+      expect(find.text('Download Detail'), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     },
   );
 }
