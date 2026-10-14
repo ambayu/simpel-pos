@@ -28,7 +28,8 @@ class TransactionPage extends StatefulWidget {
   State<TransactionPage> createState() => _TransactionPageState();
 }
 
-class _TransactionPageState extends State<TransactionPage> {
+class _TransactionPageState extends State<TransactionPage>
+    with SingleTickerProviderStateMixin {
   String searchQuery = '';
   String selectedPayment = 'Semua';
   DateRangePreset selectedPreset = DateRangePreset.all;
@@ -78,7 +79,7 @@ class _TransactionPageState extends State<TransactionPage> {
       initialDateRange: customDateRange,
       locale: const Locale('id'),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
         customDateRange = picked;
         selectedPreset = DateRangePreset.custom;
@@ -98,6 +99,190 @@ class _TransactionPageState extends State<TransactionPage> {
       selectedPreset = DateRangePreset.all;
       customDateRange = null;
     });
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Filter Riwayat',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (_hasActiveFilter)
+                      TextButton(
+                        onPressed: () {
+                          _resetFilters();
+                          Navigator.pop(ctx);
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                        ),
+                        child: const Text('Reset'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Search
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Cari no. transaksi, meja, atau kasir...',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded),
+                            onPressed: () {
+                              setState(() => searchQuery = '');
+                              setSheet(() {});
+                            },
+                          )
+                        : null,
+                  ),
+                  controller:
+                      TextEditingController(text: searchQuery)
+                        ..selection = TextSelection.collapsed(
+                            offset: searchQuery.length),
+                  onChanged: (v) {
+                    setState(() => searchQuery = v);
+                    setSheet(() {});
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Periode
+                const Text(
+                  'Periode',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: DateRangePreset.values.map((preset) {
+                    if (preset == DateRangePreset.custom) {
+                      final customLabel = customDateRange == null
+                          ? 'Kustom...'
+                          : '${customDateRange!.start.day}/${customDateRange!.start.month} - ${customDateRange!.end.day}/${customDateRange!.end.month}';
+                      return ActionChip(
+                        avatar: const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 14),
+                        label: Text(customLabel),
+                        backgroundColor:
+                            selectedPreset == DateRangePreset.custom
+                                ? AppColors.primarySoft
+                                : null,
+                        side: BorderSide(
+                          color: selectedPreset == DateRangePreset.custom
+                              ? AppColors.primary
+                              : AppColors.border,
+                        ),
+                        onPressed: () async {
+                          await _pickCustomRange();
+                          setSheet(() {});
+                        },
+                      );
+                    }
+                    return ChoiceChip(
+                      label: Text(preset.label),
+                      selected: selectedPreset == preset,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            selectedPreset = preset;
+                            if (preset != DateRangePreset.custom) {
+                              customDateRange = null;
+                            }
+                          });
+                          setSheet(() {});
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+
+                // Metode bayar
+                const Text(
+                  'Metode Bayar',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: ['Semua', 'Tunai', 'QRIS', 'Kartu', 'E-Wallet']
+                      .map((method) => ChoiceChip(
+                            label: Text(method),
+                            selected: selectedPayment == method,
+                            onSelected: (_) {
+                              setState(() => selectedPayment = method);
+                              setSheet(() {});
+                            },
+                          ))
+                      .toList(),
+                ),
+                const SizedBox(height: 20),
+
+                // Tombol Terapkan
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Terapkan'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -120,240 +305,185 @@ class _TransactionPageState extends State<TransactionPage> {
         return true;
       }).toList();
 
-      return ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          HeaderCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Riwayat Transaksi',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        floatingActionButton: FloatingActionButton(
+          onPressed: _showFilterSheet,
+          backgroundColor: _hasActiveFilter ? AppColors.danger : AppColors.primary,
+          tooltip: 'Filter Transaksi',
+          child: Badge(
+            isLabelVisible: _hasActiveFilter,
+            child: const Icon(Icons.filter_list_rounded, color: Colors.white),
+          ),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        body: ListView(
+          padding: const EdgeInsets.only(bottom: 90),
+          children: [
+            HeaderCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Riwayat Transaksi',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Riwayat pembayaran yang sudah diselesaikan',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_hasActiveFilter)
+                        TextButton.icon(
+                          onPressed: _resetFilters,
+                          icon: const Icon(
+                              Icons.filter_alt_off_rounded, size: 16),
+                          label: const Text('Reset'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.danger,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${filteredTransactions.length} transaksi ditemukan',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (_hasActiveFilter) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        if (selectedPreset != DateRangePreset.all)
+                          Chip(
+                            label: Text(
+                              selectedPreset == DateRangePreset.custom &&
+                                      customDateRange != null
+                                  ? '${customDateRange!.start.day}/${customDateRange!.start.month} - ${customDateRange!.end.day}/${customDateRange!.end.month}'
+                                  : selectedPreset.label,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                            onDeleted: () => setState(() {
+                              selectedPreset = DateRangePreset.all;
+                              customDateRange = null;
+                            }),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        if (selectedPayment != 'Semua')
+                          Chip(
+                            label: Text(
+                              selectedPayment,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                            onDeleted: () => setState(
+                                () => selectedPayment = 'Semua'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        if (searchQuery.isNotEmpty)
+                          Chip(
+                            label: Text(
+                              '"$searchQuery"',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                            onDeleted: () =>
+                                setState(() => searchQuery = ''),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  if (filteredTransactions.isEmpty)
+                    const _EmptyReport(
+                      message:
+                          'Tidak ada transaksi yang cocok dengan filter atau pencarian.',
+                    )
+                  else
+                    ...filteredTransactions.map(
+                      (transaction) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.receipt_long_rounded,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            transaction.orderLabel,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Riwayat pembayaran yang sudah diselesaikan',
-                            style: TextStyle(
+                          subtitle: Text(
+                            '${transaction.id} • ${_date(transaction.createdAt)}\n${transaction.itemCount} item • ${transaction.paymentMethod} (${transaction.cashier})',
+                            style: const TextStyle(
+                              fontSize: 12,
                               color: AppColors.textSecondary,
-                              fontSize: 13,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    if (_hasActiveFilter)
-                      TextButton.icon(
-                        onPressed: _resetFilters,
-                        icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
-                        label: const Text('Reset'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.danger,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Search bar
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Cari no. transaksi, meja, atau kasir...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded),
-                            onPressed: () =>
-                                setState(() => searchQuery = ''),
-                          )
-                        : null,
-                  ),
-                  onChanged: (v) => setState(() => searchQuery = v),
-                ),
-                const SizedBox(height: 12),
-
-                // Filter rentang tanggal
-                const Text(
-                  'Periode',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      ...DateRangePreset.values.map((preset) {
-                        if (preset == DateRangePreset.custom) {
-                          final customLabel = customDateRange == null
-                              ? 'Kustom...'
-                              : '${customDateRange!.start.day}/${customDateRange!.start.month} - ${customDateRange!.end.day}/${customDateRange!.end.month}';
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ActionChip(
-                              avatar: const Icon(
-                                Icons.calendar_today_rounded,
-                                size: 14,
-                              ),
-                              label: Text(customLabel),
-                              backgroundColor:
-                                  selectedPreset == DateRangePreset.custom
-                                      ? AppColors.primarySoft
-                                      : null,
-                              side: BorderSide(
-                                color: selectedPreset == DateRangePreset.custom
-                                    ? AppColors.primary
-                                    : AppColors.border,
-                              ),
-                              onPressed: _pickCustomRange,
+                          isThreeLine: true,
+                          trailing: Text(
+                            rupiah(transaction.total),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              color: AppColors.primary,
                             ),
-                          );
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(preset.label),
-                            selected: selectedPreset == preset,
-                            onSelected: (selected) {
-                              if (selected) {
-                                setState(() {
-                                  selectedPreset = preset;
-                                  if (preset != DateRangePreset.custom) {
-                                    customDateRange = null;
-                                  }
-                                });
-                              }
-                            },
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Filter metode pembayaran
-                const Text(
-                  'Metode Bayar',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      ...['Semua', 'Tunai', 'QRIS', 'Kartu', 'E-Wallet'].map(
-                        (method) => Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(method),
-                            selected: selectedPayment == method,
-                            onSelected: (_) =>
-                                setState(() => selectedPayment = method),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Jumlah hasil
-                const SizedBox(height: 10),
-                Text(
-                  '${filteredTransactions.length} transaksi ditemukan',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                if (filteredTransactions.isEmpty)
-                  const _EmptyReport(
-                    message:
-                        'Tidak ada transaksi yang cocok dengan filter atau pencarian.',
-                  )
-                else
-                  ...filteredTransactions.map(
-                    (transaction) => Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.primarySoft,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.receipt_long_rounded,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          transaction.orderLabel,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${transaction.id} • ${_date(transaction.createdAt)}\n${transaction.itemCount} item • ${transaction.paymentMethod} (${transaction.cashier})',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        isThreeLine: true,
-                        trailing: Text(
-                          rupiah(transaction.total),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            color: AppColors.primary,
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       );
     },
   );
