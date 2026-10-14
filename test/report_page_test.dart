@@ -109,7 +109,6 @@ void main() {
 
       // 3. Grafik Penjualan
       expect(find.text('Grafik Penjualan'), findsOneWidget);
-      expect(find.text('Lihat Detail'), findsOneWidget);
       expect(find.byType(SalesBarChart), findsOneWidget);
     },
   );
@@ -131,7 +130,7 @@ void main() {
 
       expect(find.text('Rp 0'), findsNWidgets(3)); // Omzet, Rata-rata, Estimasi Keuntungan
       expect(find.text('0'), findsWidgets); // Total Transaksi
-      expect(find.text('Tidak ada data transaksi yang sesuai dengan filter di atas.'), findsOneWidget);
+      // Daftar transaksi dipindah ke halaman Riwayat Transaksi, bukan di ReportPage
     },
   );
 

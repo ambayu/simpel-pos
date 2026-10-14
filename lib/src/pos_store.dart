@@ -1803,4 +1803,22 @@ class PosStore extends ChangeNotifier {
     notifyListeners();
     return importedCount > 0 ? importedCount : newRecords.length;
   }
+
+  /// Update field tertentu pada transaksi yang sudah selesai.
+  bool updateTransaction(String id, SaleRecord updated) {
+    final idx = transactions.indexWhere((t) => t.id == id);
+    if (idx < 0) return false;
+    transactions[idx] = updated;
+    notifyListeners();
+    return true;
+  }
+
+  /// Hapus transaksi berdasarkan id. Kembalikan true jika berhasil.
+  bool deleteTransaction(String id) {
+    final before = transactions.length;
+    transactions.removeWhere((t) => t.id == id);
+    if (transactions.length == before) return false;
+    notifyListeners();
+    return true;
+  }
 }

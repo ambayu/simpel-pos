@@ -1371,7 +1371,10 @@ class _SuccessPage extends StatelessWidget {
   }
 
   void _finish(BuildContext context) {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    // Pop _SuccessPage dan _CartPage, kembali ke OrderPage (tab Pesanan)
+    // tanpa menyentuh ShellPage sehingga tab aktif tidak berubah ke Beranda.
+    int count = 0;
+    Navigator.of(context).popUntil((_) => count++ >= 2);
   }
 
   @override

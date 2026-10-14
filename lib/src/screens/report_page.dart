@@ -13,6 +13,7 @@ enum DateRangePreset {
   today('Hari Ini'),
   last7Days('7 Hari Terakhir'),
   thisMonth('Bulan Ini'),
+  thisYear('Tahun Ini'),
   custom('Kustom');
 
   const DateRangePreset(this.label);
@@ -30,15 +31,85 @@ class TransactionPage extends StatefulWidget {
 class _TransactionPageState extends State<TransactionPage> {
   String searchQuery = '';
   String selectedPayment = 'Semua';
+  DateRangePreset selectedPreset = DateRangePreset.all;
+  DateTimeRange? customDateRange;
+
+  bool _passesDateFilter(SaleRecord t) {
+    final now = DateTime.now();
+    switch (selectedPreset) {
+      case DateRangePreset.today:
+        return t.createdAt.year == now.year &&
+            t.createdAt.month == now.month &&
+            t.createdAt.day == now.day;
+      case DateRangePreset.last7Days:
+        final start = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 6));
+        return !t.createdAt.isBefore(start);
+      case DateRangePreset.thisMonth:
+        return t.createdAt.year == now.year &&
+            t.createdAt.month == now.month;
+      case DateRangePreset.thisYear:
+        return t.createdAt.year == now.year;
+      case DateRangePreset.custom:
+        if (customDateRange == null) return true;
+        final start = DateTime(
+          customDateRange!.start.year,
+          customDateRange!.start.month,
+          customDateRange!.start.day,
+        );
+        final end = DateTime(
+          customDateRange!.end.year,
+          customDateRange!.end.month,
+          customDateRange!.end.day,
+          23, 59, 59,
+        );
+        return !t.createdAt.isBefore(start) && !t.createdAt.isAfter(end);
+      case DateRangePreset.all:
+        return true;
+    }
+  }
+
+  Future<void> _pickCustomRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: now,
+      initialDateRange: customDateRange,
+      locale: const Locale('id'),
+    );
+    if (picked != null) {
+      setState(() {
+        customDateRange = picked;
+        selectedPreset = DateRangePreset.custom;
+      });
+    }
+  }
+
+  bool get _hasActiveFilter =>
+      selectedPreset != DateRangePreset.all ||
+      selectedPayment != 'Semua' ||
+      searchQuery.isNotEmpty;
+
+  void _resetFilters() {
+    setState(() {
+      searchQuery = '';
+      selectedPayment = 'Semua';
+      selectedPreset = DateRangePreset.all;
+      customDateRange = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.store,
     builder: (context, _) {
       final filteredTransactions = widget.store.transactions.where((t) {
-        if (selectedPayment != 'Semua' && t.paymentMethod != selectedPayment) {
+        if (selectedPayment != 'Semua' &&
+            t.paymentMethod != selectedPayment) {
           return false;
         }
+        if (!_passesDateFilter(t)) return false;
         if (searchQuery.isNotEmpty) {
           final q = searchQuery.toLowerCase();
           final matchId = t.id.toLowerCase().contains(q);
@@ -57,20 +128,49 @@ class _TransactionPageState extends State<TransactionPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Riwayat Transaksi',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Riwayat pembayaran yang sudah diselesaikan',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Riwayat Transaksi',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Riwayat pembayaran yang sudah diselesaikan',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_hasActiveFilter)
+                      TextButton.icon(
+                        onPressed: _resetFilters,
+                        icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+                        label: const Text('Reset'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 14),
+
+                // Search bar
                 TextField(
                   decoration: InputDecoration(
                     hintText: 'Cari no. transaksi, meja, atau kasir...',
@@ -78,25 +178,92 @@ class _TransactionPageState extends State<TransactionPage> {
                     suffixIcon: searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear_rounded),
-                            onPressed: () => setState(() => searchQuery = ''),
+                            onPressed: () =>
+                                setState(() => searchQuery = ''),
                           )
                         : null,
                   ),
                   onChanged: (v) => setState(() => searchQuery = v),
                 ),
                 const SizedBox(height: 12),
+
+                // Filter rentang tanggal
+                const Text(
+                  'Periode',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      const Text(
-                        'Metode: ',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
+                      ...DateRangePreset.values.map((preset) {
+                        if (preset == DateRangePreset.custom) {
+                          final customLabel = customDateRange == null
+                              ? 'Kustom...'
+                              : '${customDateRange!.start.day}/${customDateRange!.start.month} - ${customDateRange!.end.day}/${customDateRange!.end.month}';
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ActionChip(
+                              avatar: const Icon(
+                                Icons.calendar_today_rounded,
+                                size: 14,
+                              ),
+                              label: Text(customLabel),
+                              backgroundColor:
+                                  selectedPreset == DateRangePreset.custom
+                                      ? AppColors.primarySoft
+                                      : null,
+                              side: BorderSide(
+                                color: selectedPreset == DateRangePreset.custom
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                              ),
+                              onPressed: _pickCustomRange,
+                            ),
+                          );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(preset.label),
+                            selected: selectedPreset == preset,
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() {
+                                  selectedPreset = preset;
+                                  if (preset != DateRangePreset.custom) {
+                                    customDateRange = null;
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Filter metode pembayaran
+                const Text(
+                  'Metode Bayar',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
                       ...['Semua', 'Tunai', 'QRIS', 'Kartu', 'E-Wallet'].map(
                         (method) => Padding(
                           padding: const EdgeInsets.only(right: 6),
@@ -111,6 +278,17 @@ class _TransactionPageState extends State<TransactionPage> {
                     ],
                   ),
                 ),
+
+                // Jumlah hasil
+                const SizedBox(height: 10),
+                Text(
+                  '${filteredTransactions.length} transaksi ditemukan',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -119,61 +297,62 @@ class _TransactionPageState extends State<TransactionPage> {
             child: Column(
               children: [
                 if (filteredTransactions.isEmpty)
-            const _EmptyReport(
-              message:
-                  'Tidak ada transaksi yang cocok dengan filter atau pencarian.',
-            )
-          else
-            ...filteredTransactions.map(
-              (transaction) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(10),
+                  const _EmptyReport(
+                    message:
+                        'Tidak ada transaksi yang cocok dengan filter atau pencarian.',
+                  )
+                else
+                  ...filteredTransactions.map(
+                    (transaction) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySoft,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.receipt_long_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          transaction.orderLabel,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${transaction.id} • ${_date(transaction.createdAt)}\n${transaction.itemCount} item • ${transaction.paymentMethod} (${transaction.cashier})',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        isThreeLine: true,
+                        trailing: Text(
+                          rupiah(transaction.total),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.receipt_long_rounded,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
                   ),
-                  title: Text(
-                    transaction.orderLabel,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '${transaction.id} • ${_date(transaction.createdAt)}\n${transaction.itemCount} item • ${transaction.paymentMethod} (${transaction.cashier})',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  isThreeLine: true,
-                  trailing: Text(
-                    rupiah(transaction.total),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
               ],
             ),
           ),
+          const SizedBox(height: 24),
         ],
       );
     },
@@ -199,6 +378,7 @@ class _ReportPageState extends State<ReportPage>
   bool exportingSummary = false;
   bool exportingDetail = false;
   bool exportingPdf = false;
+  bool importingExcel = false;
 
   DateRangePreset selectedPreset = DateRangePreset.today;
   DateTimeRange? customDateRange;
@@ -301,6 +481,9 @@ class _ReportPageState extends State<ReportPage>
             return false;
           }
           break;
+        case DateRangePreset.thisYear:
+          if (t.createdAt.year != now.year) return false;
+          break;
         case DateRangePreset.custom:
           if (customDateRange != null) {
             final start = DateTime(
@@ -387,6 +570,10 @@ class _ReportPageState extends State<ReportPage>
         final start = DateTime(now.year, now.month, 1);
         final end = DateTime(now.year, now.month + 1, 0);
         return '${_formatPillDate(start)} - ${_formatPillDate(end)}';
+      case DateRangePreset.thisYear:
+        final start = DateTime(now.year, 1, 1);
+        final end = DateTime(now.year, 12, 31);
+        return '${_formatPillDate(start)} - ${_formatPillDate(end)}';
       case DateRangePreset.custom:
         if (customDateRange != null) {
           return '${_formatPillDate(customDateRange!.start)} - ${_formatPillDate(customDateRange!.end)}';
@@ -454,6 +641,19 @@ class _ReportPageState extends State<ReportPage>
                   onTap: () {
                     setState(() {
                       selectedPreset = DateRangePreset.thisMonth;
+                      customDateRange = null;
+                    });
+                    Navigator.pop(ctx);
+                  },
+                ),
+                ListTile(
+                  title: const Text('Tahun Ini'),
+                  trailing: selectedPreset == DateRangePreset.thisYear
+                      ? const Icon(Icons.check, color: AppColors.primary)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      selectedPreset = DateRangePreset.thisYear;
                       customDateRange = null;
                     });
                     Navigator.pop(ctx);
@@ -531,14 +731,6 @@ class _ReportPageState extends State<ReportPage>
       selectedOrderType != 'Semua' ||
       searchKeyword.isNotEmpty;
 
-  void _scrollToDetail() {
-    _scrollController.animateTo(
-      200,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-    );
-  }
-
   String? _buildFilterSuffix() {
     final parts = <String>[];
     if (selectedPayment != 'Semua') {
@@ -569,6 +761,10 @@ class _ReportPageState extends State<ReportPage>
       case DateRangePreset.thisMonth:
         final start = DateTime(now.year, now.month, 1);
         final end = DateTime(now.year, now.month + 1, 0);
+        return (start: start, end: end);
+      case DateRangePreset.thisYear:
+        final start = DateTime(now.year, 1, 1);
+        final end = DateTime(now.year, 12, 31);
         return (start: start, end: end);
       case DateRangePreset.custom:
         if (customDateRange != null) {
@@ -678,6 +874,35 @@ class _ReportPageState extends State<ReportPage>
     }
   }
 
+  Future<void> _importExcel() async {
+    setState(() => importingExcel = true);
+    try {
+      final records = await ReportExporter.pickAndImportTransactions();
+      if (!mounted) return;
+      if (records.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada data yang diimpor')),
+        );
+        return;
+      }
+      final count = widget.store.importTransactions(records);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$count transaksi berhasil diimpor'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengimpor Excel: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => importingExcel = false);
+    }
+  }
+
   Widget _buildCollapsibleFab(List<SaleRecord> filteredList, bool isProcessing) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -687,63 +912,71 @@ class _ReportPageState extends State<ReportPage>
         if (_isFabExpanded || _fabAnimController.value > 0)
           SizeTransition(
             sizeFactor: _fabExpandAnim,
-            axisAlignment: 1.0,
+            axisAlignment: -1.0,
             child: FadeTransition(
               opacity: _fabExpandAnim,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Opsi 1: Filter Cepat
-                    _SpeedDialItem(
-                      label: 'Filter',
-                      icon: Icons.tune_rounded,
-                      color: AppColors.accentGold,
-                      onTap: _showFilterBottomSheet,
-                    ),
-                    const SizedBox(height: 8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Opsi 1: Filter Cepat
+                      _SpeedDialItem(
+                        label: 'Filter',
+                        icon: Icons.tune_rounded,
+                        color: AppColors.accentGold,
+                        onTap: _showFilterBottomSheet,
+                      ),
+                      const SizedBox(height: 8),
 
-                    // Opsi 2: Cetak PDF
-                    _SpeedDialItem(
-                      label: 'Cetak PDF',
-                      icon: Icons.picture_as_pdf_rounded,
-                      color: AppColors.primary,
-                      onTap: () {
-                        _closeFab();
-                        _printPdf(filteredList);
-                      },
-                    ),
-                    const SizedBox(height: 8),
+                      // Opsi 2: Cetak PDF
+                      _SpeedDialItem(
+                        label: 'Cetak PDF',
+                        icon: Icons.picture_as_pdf_rounded,
+                        color: AppColors.primary,
+                        onTap: () {
+                          _closeFab();
+                          _printPdf(filteredList);
+                        },
+                      ),
+                      const SizedBox(height: 8),
 
-                    // Opsi 3: Download Rekap
-                    _SpeedDialItem(
-                      label: 'Download Rekap',
-                      icon: Icons.summarize_rounded,
-                      color: const Color(0xFF1E7E34),
-                      onTap: () {
-                        _closeFab();
-                        _exportSummary(filteredList);
-                      },
-                    ),
-                    const SizedBox(height: 8),
+                      // Opsi 3: Download Rekap (tahan 4 detik = import Excel)
+                      _SpeedDialItemWithHold(
+                        label: 'Download Rekap',
+                        icon: Icons.summarize_rounded,
+                        color: const Color(0xFF1E7E34),
+                        onTap: () {
+                          _closeFab();
+                          _exportSummary(filteredList);
+                        },
+                        onHold: () {
+                          _closeFab();
+                          _importExcel();
+                        },
+                        holdDuration: const Duration(seconds: 4),
+                      ),
+                      const SizedBox(height: 8),
 
-                    // Opsi 4: Download Detail
-                    _SpeedDialItem(
-                      label: 'Download Detail',
-                      icon: Icons.list_alt_rounded,
-                      color: const Color(0xFF0069D9),
-                      onTap: () {
-                        _closeFab();
-                        _exportDetail(filteredList);
-                      },
-                    ),
-                  ],
+                      // Opsi 4: Download Detail
+                      _SpeedDialItem(
+                        label: 'Download Detail',
+                        icon: Icons.list_alt_rounded,
+                        color: const Color(0xFF0069D9),
+                        onTap: () {
+                          _closeFab();
+                          _exportDetail(filteredList);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-
         // FAB Utama Berbentuk Logo / Icon Bulat Elegan
         Tooltip(
           message: _isFabExpanded ? 'Tutup Aksi' : 'Menu Laporan & Cetak',
@@ -831,6 +1064,7 @@ class _ReportPageState extends State<ReportPage>
       return Scaffold(
         backgroundColor: Colors.transparent,
         floatingActionButton: _buildCollapsibleFab(filteredList, isProcessing),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: ListView(
         controller: _scrollController,
         padding: const EdgeInsets.only(bottom: 90),
@@ -940,83 +1174,56 @@ class _ReportPageState extends State<ReportPage>
                   },
                 ),
                 const SizedBox(height: 14),
-
-                // Grafik Penjualan Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Expanded(
-                      child: Text(
+          ),
+
+          // Grafik Penjualan Card
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
                         'Grafik Penjualan',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: _scrollToDetail,
-                      borderRadius: BorderRadius.circular(6),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        child: Text(
-                          'Lihat Detail',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                SalesBarChart(hourlySales: hourlySales, maxAmount: chartMax),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SalesBarChart(hourlySales: hourlySales, maxAmount: chartMax),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
 
-          // Detail Section Header
+          // Ringkasan Data Terfilter
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Daftar Transaksi (${filteredList.length})',
-              style: const TextStyle(
-                fontSize: 15.5,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Ringkasan Data Terfilter',
-                    style: TextStyle(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Ringkasan Data Terfilter',
+                      style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
@@ -1041,79 +1248,12 @@ class _ReportPageState extends State<ReportPage>
                     value:
                         '${filteredList.where((item) => item.paymentMethod != 'Tunai').length} transaksi (${rupiah(filteredList.where((item) => item.paymentMethod != 'Tunai').fold(0, (s, t) => s + t.total))})',
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Daftar Transaksi
-          Text(
-            'Daftar Transaksi (${filteredList.length})',
-            style: const TextStyle(
-              fontSize: 15.5,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          if (filteredList.isEmpty)
-            const _EmptyReport(
-              message:
-                  'Tidak ada data transaksi yang sesuai dengan filter di atas.',
-            )
-          else
-            ...filteredList.map(
-              (transaction) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.receipt_long_rounded,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    '${transaction.orderLabel} • ${transaction.id}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '${_date(transaction.createdAt)} • ${transaction.paymentMethod} • Kasir: ${transaction.cashier}\nItem: ${transaction.items.map((i) => '${i.productName} (${i.quantity}x)').join(', ')}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  isThreeLine: true,
-                  trailing: Text(
-                    rupiah(transaction.total),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                      color: AppColors.primary,
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ),
-              ],
-            ),
           ),
+          const SizedBox(height: 24),
         ],
         ),
       );
@@ -1471,12 +1611,12 @@ class _SpeedDialItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Label pill dengan background surface & shadow halus
+        // Label pill (tulisan) di kiri dengan background merah & tulisan putih
         Material(
           elevation: 3,
-          shadowColor: Colors.black.withValues(alpha: 0.15),
+          shadowColor: Colors.red.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(8),
-          color: AppColors.surface,
+          color: Colors.red,
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: onTap,
@@ -1487,14 +1627,14 @@ class _SpeedDialItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                 ),
               ),
             ),
           ),
         ),
         const SizedBox(width: 10),
-        // Mini FAB bulat icon
+        // Mini FAB bulat icon di kanan (sejajar tombol FAB utama)
         Material(
           elevation: 3,
           shadowColor: color.withValues(alpha: 0.3),
@@ -1508,6 +1648,118 @@ class _SpeedDialItem extends StatelessWidget {
               height: 42,
               child: Center(
                 child: Icon(icon, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Varian SpeedDialItem yang mendukung long press tersembunyi.
+/// Tap biasa → [onTap]. Tahan [holdDuration] → [onHold].
+class _SpeedDialItemWithHold extends StatefulWidget {
+  const _SpeedDialItemWithHold({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    required this.onHold,
+    this.holdDuration = const Duration(seconds: 4),
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final VoidCallback onHold;
+  final Duration holdDuration;
+
+  @override
+  State<_SpeedDialItemWithHold> createState() => _SpeedDialItemWithHoldState();
+}
+
+class _SpeedDialItemWithHoldState extends State<_SpeedDialItemWithHold> {
+  DateTime? _pressStart;
+  Timer? _holdTimer;
+
+  void _onTapDown(TapDownDetails _) {
+    _pressStart = DateTime.now();
+    _holdTimer?.cancel();
+    _holdTimer = Timer(widget.holdDuration, () {
+      HapticFeedback.mediumImpact();
+    });
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _holdTimer?.cancel();
+    if (_pressStart == null) return;
+    final elapsed = DateTime.now().difference(_pressStart!);
+    _pressStart = null;
+
+    if (elapsed >= widget.holdDuration) {
+      widget.onHold();
+    } else {
+      widget.onTap();
+    }
+  }
+
+  void _onTapCancel() {
+    _holdTimer?.cancel();
+    _pressStart = null;
+  }
+
+  @override
+  void dispose() {
+    _holdTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          elevation: 3,
+          shadowColor: Colors.red.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.red,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(
+                widget.label,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Material(
+          elevation: 3,
+          shadowColor: widget.color.withValues(alpha: 0.3),
+          shape: const CircleBorder(),
+          color: widget.color,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            child: SizedBox(
+              width: 42,
+              height: 42,
+              child: Center(
+                child: Icon(widget.icon, color: Colors.white, size: 20),
               ),
             ),
           ),

@@ -142,6 +142,27 @@ class SaleRecord {
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
   int get change => (paidAmount - total).clamp(0, paidAmount);
+
+  SaleRecord copyWith({
+    String? paymentMethod,
+    String? cashier,
+    DateTime? createdAt,
+    String? orderLabel,
+  }) {
+    return SaleRecord(
+      id: id,
+      orderLabel: orderLabel ?? this.orderLabel,
+      items: items,
+      subtotal: subtotal,
+      discount: discount,
+      tax: tax,
+      total: total,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paidAmount: paidAmount,
+      cashier: cashier ?? this.cashier,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class SaleItemRecord {
