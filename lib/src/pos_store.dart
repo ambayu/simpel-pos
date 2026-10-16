@@ -1475,9 +1475,9 @@ class PosStore extends ChangeNotifier {
 
   void _seedInitialData() {
     transactions.clear();
-    // Data historis Jan 2025 – Sep 2026 (lebih dulu, urutan lama ke baru)
-    transactions.addAll(generateHistoricalTransactions());
-    // Data transaksi hari ini (disisipkan di atas)
+    // Data historis Jan 2025 – Sep 2026 menggunakan menu asli dari store
+    transactions.addAll(generateHistoricalTransactions(menu));
+    // Data transaksi hari ini (disisipkan di depan)
     transactions.insertAll(0, generateInitialTransactions());
     pendingOrders.clear();
     pendingOrders.addAll(generateInitialPendingOrders(menu));
