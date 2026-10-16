@@ -164,7 +164,7 @@ class ReportExporter {
 
     sheet.appendRow([
       TextCellValue('No.'),
-      TextCellValue('No. Transaksi'),
+      TextCellValue('Kode Struk'),
       TextCellValue('Tanggal & Waktu'),
       TextCellValue('Pesanan / Meja'),
       TextCellValue('Kasir'),
@@ -835,7 +835,7 @@ class ReportExporter {
     final sheet = workbook['Template Transaksi'];
 
     sheet.appendRow([
-      TextCellValue('No. Transaksi'),
+      TextCellValue('Kode Struk'),
       TextCellValue('Tanggal & Waktu'),
       TextCellValue('Pesanan / Meja'),
       TextCellValue('Kasir'),
@@ -907,7 +907,7 @@ class ReportExporter {
       TextCellValue('1. Jangan mengubah nama kolom pada baris pertama di Sheet "Template Transaksi".'),
     ]);
     guideSheet.appendRow([
-      TextCellValue('2. Baris dengan No. Transaksi yang SAMA otomatis digabung menjadi satu transaksi dengan beberapa item pesanan.'),
+      TextCellValue('2. Baris dengan Kode Struk yang SAMA otomatis digabung menjadi satu transaksi dengan beberapa item pesanan.'),
     ]);
     guideSheet.appendRow([
       TextCellValue('3. Format Tanggal: YYYY-MM-DD HH:mm (contoh: 2026-09-10 14:30) atau DD/MM/YYYY HH:mm.'),
@@ -1015,7 +1015,7 @@ class ReportExporter {
     final taxIdx = _findHeaderIndex(headers, ['pajak', 'pajakrp', 'tax', 'ppn']);
 
     if (productIdx < 0 && orderIdIdx < 0) {
-      throw const FormatException('Format Excel tidak sesuai: kolom Nama Produk atau No. Transaksi tidak ditemukan.');
+      throw const FormatException('Format Excel tidak sesuai: kolom Nama Produk atau Kode Struk tidak ditemukan.');
     }
 
     final grouped = <String, _GroupedTransaction>{};

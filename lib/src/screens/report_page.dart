@@ -163,7 +163,7 @@ class _TransactionPageState extends State<TransactionPage>
                 // Search
                 TextField(
                   decoration: InputDecoration(
-                    hintText: 'Cari no. transaksi, meja, atau kasir...',
+                    hintText: 'Cari kode struk, meja, atau kasir...',
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: searchQuery.isNotEmpty
                         ? IconButton(
