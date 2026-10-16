@@ -12,7 +12,7 @@ class SimpelPosApp extends StatefulWidget {
 }
 
 class _SimpelPosAppState extends State<SimpelPosApp> {
-  final store = PosStore();
+  final store = PosStore(seedDemoData: true);
 
   @override
   void dispose() {

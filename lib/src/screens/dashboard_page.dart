@@ -18,72 +18,254 @@ class DashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: store,
-      builder: (context, _) => ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _DashboardHeader(store: store, onNewOrder: onNewOrder),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Pesanan Terbaru',
-                        style: TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: onNewOrder,
-                      child: const Text('Lihat Semua'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                if (store.transactions.isEmpty && store.pendingOrders.isEmpty)
-                  const _EmptyOrders()
-                else ...[
-                  ...store.pendingOrders.values.map(
-                    (order) => _OrderTile(
-                      code: order.label,
-                      title: '${order.itemCount} item aktif',
-                      amount: order.total,
-                      time: order.elapsedLabel,
-                      pending: true,
-                    ),
-                  ),
-                  ...store.transactions
-                      .take(5)
-                      .map(
-                        (transaction) => _OrderTile(
-                          code:
-                              '#${transaction.id.substring(transaction.id.length - 4)}',
-                          title: transaction.items.isEmpty
-                              ? transaction.orderLabel
-                              : transaction.items.first.productName,
-                          amount: transaction.total,
-                          time: _clock(transaction.createdAt),
-                          pending: false,
-                        ),
-                      ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
+      builder: (context, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 720;
+            if (isWide) {
+              return _WideLayout(store: store, onNewOrder: onNewOrder);
+            }
+            return _NarrowLayout(store: store, onNewOrder: onNewOrder);
+          },
+        );
+      },
     );
   }
+}
+
+// ─────────────────────────────────────────────
+// Layout NARROW (ponsel)
+// ─────────────────────────────────────────────
+class _NarrowLayout extends StatelessWidget {
+  const _NarrowLayout({required this.store, required this.onNewOrder});
+
+  final PosStore store;
+  final VoidCallback onNewOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        _DashboardHeader(store: store, onNewOrder: onNewOrder),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+          child: _RecentOrdersPanel(store: store, onNewOrder: onNewOrder),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Layout WIDE (iPad / tablet / desktop)
+// ─────────────────────────────────────────────
+class _WideLayout extends StatelessWidget {
+  const _WideLayout({required this.store, required this.onNewOrder});
+
+  final PosStore store;
+  final VoidCallback onNewOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Kolom kiri – header & statistik (fixed width)
+        SizedBox(
+          width: 340,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              _DashboardHeader(store: store, onNewOrder: onNewOrder),
+            ],
+          ),
+        ),
+        // Divider vertikal
+        const VerticalDivider(width: 1, thickness: 1),
+        // Kolom kanan – pesanan terbaru (flexible)
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            children: [
+              _RecentOrdersPanel(store: store, onNewOrder: onNewOrder),
+              const SizedBox(height: 16),
+              _QuickStatsPanel(store: store),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Panel pesanan terbaru (dipakai di kedua layout)
+// ─────────────────────────────────────────────
+class _RecentOrdersPanel extends StatelessWidget {
+  const _RecentOrdersPanel({required this.store, required this.onNewOrder});
+
+  final PosStore store;
+  final VoidCallback onNewOrder;
 
   static String _clock(DateTime value) =>
       '${value.hour.toString().padLeft(2, '0')}:'
       '${value.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Pesanan Terbaru',
+                style: TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onNewOrder,
+              child: const Text('Lihat Semua'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (store.transactions.isEmpty && store.pendingOrders.isEmpty)
+          const _EmptyOrders()
+        else ...[
+          ...store.pendingOrders.values.map(
+            (order) => _OrderTile(
+              code: order.label,
+              title: '${order.itemCount} item aktif',
+              amount: order.total,
+              time: order.elapsedLabel,
+              pending: true,
+            ),
+          ),
+          ...store.transactions.take(8).map(
+                (transaction) => _OrderTile(
+                  code:
+                      '#${transaction.id.substring(transaction.id.length - 4)}',
+                  title: transaction.items.isEmpty
+                      ? transaction.orderLabel
+                      : transaction.items.first.productName,
+                  amount: transaction.total,
+                  time: _clock(transaction.createdAt),
+                  pending: false,
+                ),
+              ),
+        ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Panel stat tambahan khusus wide layout
+// ─────────────────────────────────────────────
+class _QuickStatsPanel extends StatelessWidget {
+  const _QuickStatsPanel({required this.store});
+
+  final PosStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final recentTrx = store.transactions.take(20).toList();
+    final topItems = <String, int>{};
+    for (final trx in recentTrx) {
+      for (final item in trx.items) {
+        topItems[item.productName] =
+            (topItems[item.productName] ?? 0) + item.quantity;
+      }
+    }
+    final sorted = topItems.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top5 = sorted.take(5).toList();
+
+    if (top5.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Menu Terlaris (20 Transaksi Terakhir)',
+          style: TextStyle(
+            fontSize: 15.5,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...top5.asMap().entries.map((entry) {
+          final rank = entry.key + 1;
+          final item = entry.value;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: rank == 1
+                        ? AppColors.primary
+                        : AppColors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$rank',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: rank == 1
+                            ? Colors.white
+                            : AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    item.key,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${item.value}x',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
 }
 
 class _DashboardHeader extends StatelessWidget {
@@ -255,10 +437,12 @@ class _StatCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+      child: ClipRect(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Text(
             label,
             maxLines: 1,
@@ -302,6 +486,7 @@ class _StatCard extends StatelessWidget {
             ],
           ),
         ],
+        ),  // ClipRect
       ),
     );
   }
