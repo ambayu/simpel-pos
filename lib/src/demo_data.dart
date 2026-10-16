@@ -77,7 +77,6 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
     'Meja 01', 'Meja 02', 'Meja 03', 'Meja 04', 'Meja 05',
     'Meja 06', 'Meja 07', 'Meja 08', 'Meja 09', 'Meja 10',
     'Meja 11', 'Meja 12',
-    'Take Away #01', 'Take Away #02', 'Take Away #03',
   ];
 
   // Peak hours — lebih padat di jam makan siang & malam
@@ -309,7 +308,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0046',
-      orderLabel: 'Take Away #01',
+      orderLabel: 'Meja 04',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 15000,
@@ -458,7 +457,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0039',
-      orderLabel: 'Take Away #03',
+      orderLabel: 'Meja 09',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 42000,
@@ -541,7 +540,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0035',
-      orderLabel: 'Take Away #02',
+      orderLabel: 'Meja 07',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 66000,
@@ -607,7 +606,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0032',
-      orderLabel: 'Take Away #01',
+      orderLabel: 'Meja 04',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 45000,
@@ -756,7 +755,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0025',
-      orderLabel: 'Take Away #03',
+      orderLabel: 'Meja 09',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 28000,
@@ -834,7 +833,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0021',
-      orderLabel: 'Take Away #02',
+      orderLabel: 'Meja 07',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 80000,
@@ -895,7 +894,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0018',
-      orderLabel: 'Take Away #01',
+      orderLabel: 'Meja 04',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 80000,
@@ -1034,7 +1033,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0011',
-      orderLabel: 'Take Away #03',
+      orderLabel: 'Meja 09',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 68000,
@@ -1173,7 +1172,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0004',
-      orderLabel: 'Take Away #02',
+      orderLabel: 'Meja 07',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 45000,
@@ -1234,7 +1233,7 @@ List<SaleRecord> generateInitialTransactions() {
     ),
     SaleRecord(
       id: 'TRX-0001',
-      orderLabel: 'Take Away #01',
+      orderLabel: 'Meja 04',
       paymentMethod: 'Cash',
       cashier: 'Kasir 1',
       subtotal: 68000,
