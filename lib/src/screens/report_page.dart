@@ -510,7 +510,7 @@ class _ReportPageState extends State<ReportPage>
   bool exportingPdf = false;
   bool importingExcel = false;
 
-  DateRangePreset selectedPreset = DateRangePreset.today;
+  DateRangePreset selectedPreset = DateRangePreset.all;
   DateTimeRange? customDateRange;
   String selectedPayment = 'Semua';
   String selectedOrderType = 'Semua';

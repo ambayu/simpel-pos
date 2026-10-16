@@ -31,109 +31,227 @@ bool _isHariBesar(int year, int month) {
 }
 
 // ---------------------------------------------------------------------------
-// Seed transactions historis Jan 2025 – Sep 2026 dengan total bulanan:
-//   normal   : Rp 5.000.000 – 6.000.000
-//   hari besar: Rp 7.000.000 – 8.000.000
-// Setiap bulan di-split menjadi ~20–25 transaksi harian dengan item realistis.
+// Katalog menu lengkap untuk data historis — dikelompokkan per kategori
+// sehingga kombinasi item per transaksi terasa natural (makanan + minuman)
+// ---------------------------------------------------------------------------
+class _MenuItem {
+  const _MenuItem(this.name, this.price);
+  final String name;
+  final int price;
+}
+
+const _menuMakanan = <_MenuItem>[
+  _MenuItem('Collagen Soup (200 gram)', 70000),
+  _MenuItem('Mala Collagen Soup (200 gram)', 70000),
+  _MenuItem('Collagen Soup (300 gram)', 105000),
+  _MenuItem('Haisom LongChuan (Porsi M)', 250000),
+  _MenuItem('Haisom LongChuan (Porsi L)', 450000),
+  _MenuItem('Kepiting Soka Lada Hitam (Porsi M)', 125000),
+  _MenuItem('Kepiting Soka X.O Bao (Porsi S)', 80000),
+  _MenuItem('Ikan Asam Pedas (Steam)', 250000),
+  _MenuItem('Ikan Asam Manis', 250000),
+  _MenuItem('Ikan Saus Nyonya Special', 250000),
+  _MenuItem('Ikan Crispy Saus Thai', 250000),
+  _MenuItem('Ikan Fillet Bakar Portugues (Porsi M)', 80000),
+  _MenuItem('Udang Bakar Portuguese (Porsi M)', 135000),
+  _MenuItem('Udang Goreng Spesial (Porsi M)', 135000),
+  _MenuItem('Udang KamHeong (Porsi S)', 80000),
+  _MenuItem('Bebek Asap Nenas Saus Plam (Porsi M)', 125000),
+  _MenuItem('Peking Duck Roll With Lotus Bun', 100000),
+  _MenuItem('Crispy Peking Duck Roll (Porsi M)', 80000),
+  _MenuItem('Ayam Goreng KamHeong (Porsi M)', 130000),
+  _MenuItem('Ayam Saus Tape (Porsi S)', 80000),
+  _MenuItem('Ayam Kung Pao (Porsi M)', 80000),
+  _MenuItem('Ayam Kampung Hainam (Porsi M)', 150000),
+  _MenuItem('Ayam Goreng Thai (Porsi S)', 60000),
+  _MenuItem('Szechuan Mala Chicken (Porsi S)', 70000),
+  _MenuItem('US Beef in Black Pepper Sauce (Porsi M)', 125000),
+  _MenuItem('US Beef in Teriyaki Sauce (Porsi M)', 125000),
+  _MenuItem('Cumi Salted Egg (Porsi S)', 100000),
+  _MenuItem('Cumi Goreng Spesial (Porsi S)', 70000),
+  _MenuItem('Mapo Tofu', 80000),
+  _MenuItem('Braised Tofu with Mushroom', 80000),
+  _MenuItem('Tahu Bumbu Bawang', 50000),
+  _MenuItem('Brokoli Scallop X.O (Porsi S)', 80000),
+  _MenuItem('Brokoli Bebek Asap (Porsi S)', 80000),
+  _MenuItem('Brokoli Salted Egg', 125000),
+  _MenuItem('Fu Yung Hai (Porsi S)', 50000),
+  _MenuItem('Nasi Goreng Seafood', 60000),
+  _MenuItem('Nasi Goreng Ayam', 50000),
+  _MenuItem('Nasi Goreng Telur', 40000),
+  _MenuItem('Mie Goreng Legend (200 gram)', 70000),
+  _MenuItem('Mie Goreng Legend (300 gram)', 105000),
+  _MenuItem('Chicken Nugget', 25000),
+  _MenuItem('Kentang Goreng', 25000),
+  _MenuItem('Pisang Goreng Crispy', 35000),
+];
+
+const _menuMinuman = <_MenuItem>[
+  _MenuItem('Teh Tawar (Hot)', 10000),
+  _MenuItem('Teh Tawar (Ice)', 12000),
+  _MenuItem('Teh Manis (Hot)', 10000),
+  _MenuItem('Teh Manis (Ice)', 12000),
+  _MenuItem('Ice Lemon Tea', 15000),
+  _MenuItem('Ice Lychee Tea', 25000),
+  _MenuItem('Chinese Tea (2-5 pax)', 25000),
+  _MenuItem('Chinese Tea (6-10 pax)', 45000),
+  _MenuItem('Manggo Lychee', 25000),
+  _MenuItem('Juice Semboi', 25000),
+  _MenuItem('Teh Markisa', 25000),
+  _MenuItem('Black Coffee (Hot)', 30000),
+  _MenuItem('Milk Coffee (Ice)', 35000),
+  _MenuItem('Mineral Water', 18000),
+  _MenuItem('Green Tea', 18000),
+  _MenuItem('Chrysanthemum Tea', 20000),
+  _MenuItem('Wang Lo Kat Tea', 28000),
+  _MenuItem('Bir Bintang Kaleng (Kecil)', 38000),
+  _MenuItem('Bir Bintang Botol (Besar)', 58000),
+  _MenuItem('Bir Heineken Kaleng (Kecil)', 45000),
+];
+
+// ---------------------------------------------------------------------------
+// Seed transactions historis Jan 2025 – Sep 2026
+//   normal    : Rp 5.000.000 – 6.000.000 / bulan
+//   hari besar: Rp 7.000.000 – 8.000.000 / bulan
+// Data dibuat se-realistis mungkin: variasi item, qty, jam peak/off-peak,
+// distribusi harian yang tidak rata, dan kombinasi makanan + minuman.
 // ---------------------------------------------------------------------------
 List<SaleRecord> generateHistoricalTransactions() {
   final records = <SaleRecord>[];
   int trxCounter = 1000;
 
-  // Produk-produk yang digunakan sebagai item historis (subset menu restoran)
-  final historicalItems = [
-    const SaleItemRecord(productName: 'Collagen Soup (200 gram)', quantity: 1, unitPrice: 70000),
-    const SaleItemRecord(productName: 'Mala Collagen Soup (200 gram)', quantity: 1, unitPrice: 70000),
-    const SaleItemRecord(productName: 'Haisom LongChuan (Porsi M)', quantity: 1, unitPrice: 250000),
-    const SaleItemRecord(productName: 'Kepiting Soka Lada Hitam (Porsi M)', quantity: 1, unitPrice: 125000),
-    const SaleItemRecord(productName: 'Ikan Asam Pedas (Steam)', quantity: 1, unitPrice: 250000),
-    const SaleItemRecord(productName: 'Udang Bakar Portuguese (Porsi M)', quantity: 1, unitPrice: 135000),
-    const SaleItemRecord(productName: 'Bebek Asap Nenas Saus Plam (Porsi M)', quantity: 1, unitPrice: 125000),
-    const SaleItemRecord(productName: 'Peking Duck Roll With Lotus Bun', quantity: 3, unitPrice: 100000),
-    const SaleItemRecord(productName: 'Ayam Goreng KamHeong (Porsi M)', quantity: 1, unitPrice: 130000),
-    const SaleItemRecord(productName: 'Nasi Goreng Seafood', quantity: 1, unitPrice: 60000),
-    const SaleItemRecord(productName: 'Nasi Goreng Ayam', quantity: 2, unitPrice: 50000),
-    const SaleItemRecord(productName: 'Mie Goreng Legend (200 gram)', quantity: 1, unitPrice: 70000),
-    const SaleItemRecord(productName: 'Braised Tofu with Mushroom', quantity: 1, unitPrice: 80000),
-    const SaleItemRecord(productName: 'Brokoli Scallop X.O (Porsi S)', quantity: 1, unitPrice: 80000),
-    const SaleItemRecord(productName: 'Teh Tawar (Hot)', quantity: 2, unitPrice: 10000),
-    const SaleItemRecord(productName: 'Teh Manis (Ice)', quantity: 2, unitPrice: 12000),
-    const SaleItemRecord(productName: 'Ice Lychee Tea', quantity: 1, unitPrice: 25000),
-    const SaleItemRecord(productName: 'Chinese Tea (2-5 pax)', quantity: 1, unitPrice: 25000),
-    const SaleItemRecord(productName: 'Mineral Water', quantity: 2, unitPrice: 18000),
-    const SaleItemRecord(productName: 'Bir Bintang Botol (Besar)', quantity: 1, unitPrice: 58000),
-    const SaleItemRecord(productName: 'Chicken Nugget', quantity: 1, unitPrice: 25000),
-    const SaleItemRecord(productName: 'Kentang Goreng', quantity: 1, unitPrice: 25000),
-    const SaleItemRecord(productName: 'Cumi Salted Egg (Porsi S)', quantity: 1, unitPrice: 100000),
-    const SaleItemRecord(productName: 'Mapo Tofu', quantity: 1, unitPrice: 80000),
-    const SaleItemRecord(productName: 'US Beef in Black Pepper Sauce (Porsi M)', quantity: 1, unitPrice: 125000),
-  ];
-
-  final paymentMethods = ['Tunai', 'QRIS', 'E-Wallet', 'Kartu'];
-  final cashiers = ['Kasir', 'Budi', 'Sari', 'Rini'];
-  final tableLabels = [
+  const paymentMethods = ['Tunai', 'QRIS', 'QRIS', 'E-Wallet', 'Kartu'];
+  const cashiers       = ['Kasir', 'Budi', 'Sari', 'Rini', 'Budi', 'Kasir'];
+  const tableLabels    = [
     'Meja 01', 'Meja 02', 'Meja 03', 'Meja 04', 'Meja 05',
     'Meja 06', 'Meja 07', 'Meja 08', 'Meja 09', 'Meja 10',
-    'Take Away #01', 'Take Away #02',
+    'Meja 11', 'Meja 12',
+    'Take Away #01', 'Take Away #02', 'Take Away #03',
   ];
+
+  // Peak hours — lebih banyak transaksi di jam makan siang & malam
+  // [jam, bobot] → bobot lebih tinggi = lebih sering dipilih
+  const hourPool = <int>[
+    11, 11,
+    12, 12, 12, 12, 12,
+    13, 13, 13, 13,
+    14, 14, 14,
+    15, 15,
+    16,
+    17, 17,
+    18, 18, 18, 18, 18,
+    19, 19, 19, 19, 19, 19,
+    20, 20, 20, 20, 20,
+    21, 21, 21,
+    22, 22,
+  ];
+
+  // Pseudo-random deterministik
+  var seed = 137;
+  int rng(int min, int max) {
+    seed = (seed * 1664525 + 1013904223) & 0x7fffffff;
+    return min + (seed % (max - min + 1));
+  }
+
+  // Bangun satu transaksi realistis dari pool menu
+  List<SaleItemRecord> buildItems() {
+    final itemCount = rng(0, 9) < 6 ? rng(2, 3) : rng(1, 4); // 60% → 2-3 item
+    final picked = <String>{};
+    final result  = <SaleItemRecord>[];
+
+    // Selalu ambil minimal 1 makanan
+    for (var attempt = 0; attempt < 10 && result.isEmpty; attempt++) {
+      final m = _menuMakanan[rng(0, _menuMakanan.length - 1)];
+      if (!picked.contains(m.name)) {
+        picked.add(m.name);
+        final qty = rng(0, 5) < 4 ? 1 : rng(2, 3);
+        result.add(SaleItemRecord(productName: m.name, quantity: qty, unitPrice: m.price));
+      }
+    }
+
+    // Tambah item makanan/minuman berikutnya
+    for (var i = result.length; i < itemCount; i++) {
+      final isMinum = rng(0, 2) == 0; // 33% minuman
+      final pool    = isMinum ? _menuMinuman : _menuMakanan;
+      for (var attempt = 0; attempt < 10; attempt++) {
+        final m = pool[rng(0, pool.length - 1)];
+        if (!picked.contains(m.name)) {
+          picked.add(m.name);
+          final qty = isMinum ? rng(1, 3) : (rng(0, 4) < 4 ? 1 : 2);
+          result.add(SaleItemRecord(productName: m.name, quantity: qty, unitPrice: m.price));
+          break;
+        }
+      }
+    }
+
+    // Hampir selalu ada minuman di akhir jika belum ada
+    final hasMinum = result.any((r) => _menuMinuman.any((m) => m.name == r.productName));
+    if (!hasMinum && rng(0, 3) > 0) {
+      final m = _menuMinuman[rng(0, _menuMinuman.length - 1)];
+      if (!picked.contains(m.name)) {
+        result.add(SaleItemRecord(productName: m.name, quantity: rng(1, 3), unitPrice: m.price));
+      }
+    }
+
+    return result;
+  }
 
   // Range bulan: Jan 2025 – Sep 2026
   final months = <(int, int)>[];
   for (var m = 1; m <= 12; m++) { months.add((2025, m)); }
-  for (var m = 1; m <= 9; m++) { months.add((2026, m)); }
-
-  // Pseudo-random deterministik pakai seed manual
-  var seed = 42;
-  int rng(int min, int max) {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    return min + (seed % (max - min + 1));
-  }
+  for (var m = 1; m <= 9; m++)  { months.add((2026, m)); }
 
   for (final (year, month) in months) {
     final isBulanBesar = _isHariBesar(year, month);
-    final targetTotal = isBulanBesar
-        ? 7000000 + rng(0, 1000000)  // 7jt – 8jt
-        : 5000000 + rng(0, 1000000); // 5jt – 6jt
 
-    // Jumlah transaksi per bulan: 20–28
-    final txCount = rng(20, 28);
+    // Target omzet bulanan
+    final targetTotal = isBulanBesar
+        ? 7000000 + rng(0, 1000000)   // 7jt – 8jt
+        : 5000000 + rng(0, 1000000);  // 5jt – 6jt
+
+    // Jumlah transaksi: bulan besar lebih ramai
+    final txCount    = isBulanBesar ? rng(28, 38) : rng(20, 28);
     final daysInMonth = DateTime(year, month + 1, 0).day;
 
-    // Distribusi total transaksi ke txCount transaksi
+    // Distribusi harian — bukan rata, lebih banyak di tengah & akhir bulan
+    // (weekend effect disimulasikan lewat bobot)
     var remaining = targetTotal;
+
     for (var i = 0; i < txCount; i++) {
       final isLast = i == txCount - 1;
-      final int trxTotal;
+
+      // Nominal per transaksi — distribusikan dengan variasi natural
+      final int trxTarget;
       if (isLast) {
-        trxTotal = remaining.clamp(80000, 800000);
+        trxTarget = remaining.clamp(60000, 900000);
       } else {
-        final avg = remaining ~/ (txCount - i);
-        final variance = (avg * 0.3).round();
-        trxTotal = (avg - variance + rng(0, variance * 2)).clamp(80000, 800000);
-        remaining -= trxTotal;
+        final avg      = remaining ~/ (txCount - i);
+        final variance = (avg * 0.4).round();
+        trxTarget = (avg - variance + rng(0, variance * 2)).clamp(60000, 900000);
+        remaining -= trxTarget;
       }
 
-      // Pilih item untuk transaksi ini
-      final itemIdx1 = rng(0, historicalItems.length - 1);
-      var itemIdx2 = rng(0, historicalItems.length - 1);
-      while (itemIdx2 == itemIdx1) {
-        itemIdx2 = rng(0, historicalItems.length - 1);
-      }
-      final items = [historicalItems[itemIdx1], historicalItems[itemIdx2]];
+      // Bangun items, hitung subtotal real dari item
+      final items   = buildItems();
+      final rawTotal = items.fold<int>(0, (s, r) => s + r.unitPrice * r.quantity);
 
-      final subtotal = trxTotal; // tax 0 supaya konsisten dengan data existing
-      final day = rng(1, daysInMonth);
-      final hour = rng(10, 22);
+      // Jika rawTotal jauh dari trxTarget, coba ulangi sekali lagi
+      // (tidak memaksa match persis — natural itu tidak pernah tepat)
+      final subtotal = rawTotal.clamp(50000, 1200000);
+
+      // Pilih hari: distribusi tidak rata (lebih padat di hari 10–25)
+      final dayBias = rng(0, 9) < 7
+          ? rng(5, daysInMonth)         // 70% → pertengahan–akhir bulan
+          : rng(1, 10);                 // 30% → awal bulan
+      final day    = dayBias.clamp(1, daysInMonth);
+      final hour   = hourPool[rng(0, hourPool.length - 1)];
       final minute = rng(0, 59);
-      final tableLabel = tableLabels[rng(0, tableLabels.length - 1)];
-      final payment = paymentMethods[rng(0, paymentMethods.length - 1)];
-      final cashier = cashiers[rng(0, cashiers.length - 1)];
 
       records.add(SaleRecord(
         id: 'TRX-H${(trxCounter++).toString().padLeft(5, '0')}',
-        orderLabel: tableLabel,
-        paymentMethod: payment,
-        cashier: cashier,
+        orderLabel: tableLabels[rng(0, tableLabels.length - 1)],
+        paymentMethod: paymentMethods[rng(0, paymentMethods.length - 1)],
+        cashier: cashiers[rng(0, cashiers.length - 1)],
         subtotal: subtotal,
         tax: 0,
         total: subtotal,
@@ -143,7 +261,6 @@ List<SaleRecord> generateHistoricalTransactions() {
     }
   }
 
-  // Urutkan dari terlama ke terbaru
   records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
   return records;
 }
