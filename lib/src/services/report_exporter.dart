@@ -265,14 +265,14 @@ class ReportExporter {
         IntCellValue(monthRevenue),
       ]);
       sheet.appendRow([
-        TextCellValue('TOTAL PAJAK 10%'),
         TextCellValue(''),
+        TextCellValue('TOTAL PAJAK 10%'),
         TextCellValue(''),
         IntCellValue(monthTax),
       ]);
       sheet.appendRow([
-        TextCellValue('TOTAL SETELAH PAJAK'),
         TextCellValue(''),
+        TextCellValue('TOTAL SETELAH PAJAK'),
         TextCellValue(''),
         IntCellValue(monthAfterTax),
       ]);
@@ -290,14 +290,14 @@ class ReportExporter {
         IntCellValue(grandTotalPendapatan),
       ]);
       sheet.appendRow([
-        TextCellValue('GRAND TOTAL PAJAK 10%'),
         TextCellValue(''),
+        TextCellValue('GRAND TOTAL PAJAK 10%'),
         TextCellValue(''),
         IntCellValue(grandTax),
       ]);
       sheet.appendRow([
-        TextCellValue('GRAND TOTAL SETELAH PAJAK'),
         TextCellValue(''),
+        TextCellValue('GRAND TOTAL SETELAH PAJAK'),
         TextCellValue(''),
         IntCellValue(grandAfterTax),
       ]);
@@ -1116,14 +1116,14 @@ class ReportExporter {
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(''),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
                         child: pw.Text(
                           'TOTAL PAJAK 10%',
                           style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                         ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                        child: pw.Text(''),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
@@ -1144,14 +1144,14 @@ class ReportExporter {
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(''),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
                         child: pw.Text(
                           'TOTAL SETELAH PAJAK',
                           style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                         ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                        child: pw.Text(''),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
