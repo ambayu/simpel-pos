@@ -336,7 +336,7 @@ class _DashboardHeader extends StatelessWidget {
                 crossAxisCount: columns,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 1.95,
+                childAspectRatio: 1.80,
                 children: [
                   _StatCard(
                     label: 'Omzet Hari Ini',
@@ -432,17 +432,15 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: ClipRect(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
           Text(
             label,
             maxLines: 1,
@@ -453,20 +451,18 @@ class _StatCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               value,
               style: const TextStyle(
-                fontSize: 17,
+                fontSize: 16.5,
                 fontWeight: FontWeight.w900,
                 color: AppColors.primary,
               ),
             ),
           ),
-          const SizedBox(height: 3),
           Row(
             children: [
               if (showArrow)
@@ -478,7 +474,7 @@ class _StatCard extends StatelessWidget {
               Text(
                 delta,
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: AppColors.success,
                 ),
@@ -486,7 +482,6 @@ class _StatCard extends StatelessWidget {
             ],
           ),
         ],
-        ),  // ClipRect
       ),
     );
   }

@@ -1416,38 +1416,47 @@ class _ReportPageState extends State<ReportPage>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Ringkasan Data Terfilter',
                       style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  _DataLine(
-                    label: 'Total transaksi tercatat',
-                    value: '${filteredList.length} transaksi',
-                  ),
-                  _DataLine(
-                    label: 'Total produk terjual',
-                    value: '$totalItems item',
-                  ),
-                  _DataLine(
-                    label: 'Pembayaran tunai',
-                    value:
-                        '${filteredList.where((item) => item.paymentMethod == 'Tunai').length} transaksi (${rupiah(filteredList.where((item) => item.paymentMethod == 'Tunai').fold(0, (s, t) => s + t.total))})',
-                  ),
-                  _DataLine(
-                    label: 'Pembayaran non-tunai',
-                    value:
-                        '${filteredList.where((item) => item.paymentMethod != 'Tunai').length} transaksi (${rupiah(filteredList.where((item) => item.paymentMethod != 'Tunai').fold(0, (s, t) => s + t.total))})',
-                  ),
+                    const SizedBox(height: 12),
+                    _DataLine(
+                      label: 'Total transaksi tercatat',
+                      value: '${filteredList.length} transaksi',
+                    ),
+                    _DataLine(
+                      label: 'Total produk terjual',
+                      value: '$totalItems item',
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Divider(height: 1, color: AppColors.border),
+                    ),
+                    _DataLine(
+                      label: 'Pembayaran tunai',
+                      value: '${filteredList.where((item) => item.paymentMethod == 'Tunai').length} transaksi',
+                      detail: rupiah(filteredList.where((item) => item.paymentMethod == 'Tunai').fold(0, (s, t) => s + t.total)),
+                    ),
+                    _DataLine(
+                      label: 'Pembayaran non-tunai',
+                      value: '${filteredList.where((item) => item.paymentMethod != 'Tunai').length} transaksi',
+                      detail: rupiah(filteredList.where((item) => item.paymentMethod != 'Tunai').fold(0, (s, t) => s + t.total)),
+                    ),
                   ],
                 ),
               ),
@@ -2024,13 +2033,21 @@ class _SalesChartPainter extends CustomPainter {
 }
 
 class _DataLine extends StatelessWidget {
-  const _DataLine({required this.label, required this.value});
+  const _DataLine({
+    required this.label,
+    required this.value,
+    this.detail,
+  });
+
   final String label;
   final String value;
+  final String? detail;
+
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+    padding: const EdgeInsets.symmetric(vertical: 5),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Text(
@@ -2038,20 +2055,37 @@ class _DataLine extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-              fontSize: 13,
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                fontSize: 13,
+              ),
             ),
-          ),
+            if (detail != null) ...[
+              const SizedBox(height: 1),
+              Text(
+                detail!,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     ),

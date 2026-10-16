@@ -80,77 +80,79 @@ class _LoginPageState extends State<LoginPage> {
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isLandscape = constraints.maxWidth > constraints.maxHeight;
-                final crossAxisCount = isLandscape ? 4 : 2;
+                final isWide = constraints.maxWidth >= 600;
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-                  child: Column(
-                    children: [
-                      HeaderCard(
-                        margin: EdgeInsets.zero,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.arrow_back_rounded),
-                              visualDensity: VisualDensity.compact,
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 820),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+                      child: Column(
+                        children: [
+                          HeaderCard(
+                            margin: EdgeInsets.zero,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
                             ),
-                            const Expanded(
-                              child: Column(
-                                children: [
-                                  Text(
-                                    'Pilih Peran Anda',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.textPrimary,
-                                    ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  icon: const Icon(Icons.arrow_back_rounded),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                const Expanded(
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'Pilih Peran Anda',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Masuk sesuai peran untuk melanjutkan',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Masuk sesuai peran untuk melanjutkan',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 40),
+                              ],
                             ),
-                            const SizedBox(width: 40),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: roles.length,
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              mainAxisExtent: isLandscape ? 210 : 222,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                            ),
-                        itemBuilder: (context, index) {
-                          final role = roles[index];
-                          final selected = role.name == selectedRole;
-                          return _RoleCard(
-                            role: role,
-                            selected: selected,
-                            onTap: () =>
-                                setState(() => selectedRole = role.name),
-                          );
-                        },
-                      ),
+                          ),
+                          const SizedBox(height: 16),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: roles.length,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisExtent: isWide ? 230 : 210,
+                                  mainAxisSpacing: 14,
+                                  crossAxisSpacing: 14,
+                                ),
+                            itemBuilder: (context, index) {
+                              final role = roles[index];
+                              final selected = role.name == selectedRole;
+                              return _RoleCard(
+                                role: role,
+                                selected: selected,
+                                onTap: () =>
+                                    setState(() => selectedRole = role.name),
+                              );
+                            },
+                          ),
                       const SizedBox(height: 20),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
@@ -183,13 +185,15 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ],
                   ),
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 }
 
