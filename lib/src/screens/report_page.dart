@@ -847,7 +847,7 @@ class _ReportPageState extends State<ReportPage>
 
   void _resetFilter() {
     setState(() {
-      selectedPreset = DateRangePreset.today;
+      selectedPreset = DateRangePreset.all;
       customDateRange = null;
       selectedPayment = 'Semua';
       selectedOrderType = 'Semua';
@@ -856,7 +856,7 @@ class _ReportPageState extends State<ReportPage>
   }
 
   bool get _hasActiveFilter =>
-      selectedPreset != DateRangePreset.today ||
+      selectedPreset != DateRangePreset.all ||
       selectedPayment != 'Semua' ||
       selectedOrderType != 'Semua' ||
       searchKeyword.isNotEmpty;
@@ -1151,45 +1151,105 @@ class _ReportPageState extends State<ReportPage>
     );
   }
 
+  // Tentukan mode grafik berdasarkan rentang tanggal aktif
+  _ChartMode _resolveChartMode(List<SaleRecord> list) {
+    if (list.isEmpty) return _ChartMode.hourly;
+    final sorted = list.map((t) => t.createdAt).toList()..sort();
+    final diff = sorted.last.difference(sorted.first).inDays;
+    if (diff <= 1) return _ChartMode.hourly;
+    if (diff <= 60) return _ChartMode.daily;
+    return _ChartMode.monthly;
+  }
+
+  // Agregasi data per jam
   Map<int, double> _calculateHourlySales(List<SaleRecord> list) {
-    final actual = <int, double>{};
+    final result = <int, double>{};
     for (final t in list) {
-      final hour = t.createdAt.hour;
-      actual[hour] = (actual[hour] ?? 0) + t.total;
+      final h = t.createdAt.hour;
+      result[h] = (result[h] ?? 0) + t.total;
     }
-    return actual;
+    return result;
+  }
+
+  // Agregasi data per hari (key = epoch hari)
+  Map<DateTime, double> _calculateDailySales(List<SaleRecord> list) {
+    final result = <DateTime, double>{};
+    for (final t in list) {
+      final day = DateTime(
+        t.createdAt.year, t.createdAt.month, t.createdAt.day);
+      result[day] = (result[day] ?? 0) + t.total;
+    }
+    return result;
+  }
+
+  // Agregasi data per bulan (key = DateTime(year, month, 1))
+  Map<DateTime, double> _calculateMonthlySales(List<SaleRecord> list) {
+    final result = <DateTime, double>{};
+    for (final t in list) {
+      final month = DateTime(t.createdAt.year, t.createdAt.month);
+      result[month] = (result[month] ?? 0) + t.total;
+    }
+    return result;
+  }
+
+  // Hitung delta omzet vs periode sebelumnya yang setara
+  String _calcDelta(List<SaleRecord> all, List<SaleRecord> filtered) {
+    if (filtered.isEmpty) return '-';
+    final sorted = filtered.map((t) => t.createdAt).toList()..sort();
+    final rangeLen = sorted.last.difference(sorted.first);
+    final prevEnd   = sorted.first.subtract(const Duration(days: 1));
+    final prevStart = prevEnd.subtract(rangeLen);
+    final prevTotal = all
+        .where((t) =>
+            !t.createdAt.isBefore(prevStart) &&
+            !t.createdAt.isAfter(prevEnd))
+        .fold<int>(0, (s, t) => s + t.total);
+    final currTotal = filtered.fold<int>(0, (s, t) => s + t.total);
+    if (prevTotal == 0) return '+100%';
+    final pct = ((currTotal - prevTotal) / prevTotal * 100).round();
+    return pct >= 0 ? '+$pct%' : '$pct%';
   }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.store,
     builder: (context, _) {
-      final filteredList = _filterTransactions(widget.store.transactions);
+      final allTrx      = widget.store.transactions;
+      final filteredList = _filterTransactions(allTrx);
 
-      final int revenue = filteredList.fold<int>(0, (sum, t) => sum + t.total);
+      final int revenue          = filteredList.fold<int>(0, (s, t) => s + t.total);
       final int transactionCount = filteredList.length;
+      final int average          = transactionCount == 0 ? 0 : (revenue / transactionCount).round();
+      final int profit           = (revenue * 0.4).round();
+      final int totalItems       = filteredList.fold<int>(0, (s, t) => s + t.itemCount);
 
-      final int average = transactionCount == 0
-          ? 0
-          : (revenue / transactionCount).round();
+      // Delta real vs periode sebelumnya
+      final deltaRevenue = _calcDelta(allTrx, filteredList);
+      final deltaCount   = transactionCount > 0 ? deltaRevenue : '-';
 
-      final int profit = (revenue * 0.4).round();
+      // Grafik adaptif
+      final chartMode  = _resolveChartMode(filteredList);
+      final hourlySales  = chartMode == _ChartMode.hourly
+          ? _calculateHourlySales(filteredList)
+          : <int, double>{};
+      final dailySales   = chartMode == _ChartMode.daily
+          ? _calculateDailySales(filteredList)
+          : <DateTime, double>{};
+      final monthlySales = chartMode == _ChartMode.monthly
+          ? _calculateMonthlySales(filteredList)
+          : <DateTime, double>{};
 
-      final int totalItems = filteredList.fold<int>(
-        0,
-        (sum, t) => sum + t.itemCount,
-      );
+      double maxVal = 0;
+      if (chartMode == _ChartMode.hourly) {
+        maxVal = hourlySales.values.fold(0, (m, v) => v > m ? v : m);
+      } else if (chartMode == _ChartMode.daily) {
+        maxVal = dailySales.values.fold(0, (m, v) => v > m ? v : m);
+      } else {
+        maxVal = monthlySales.values.fold(0, (m, v) => v > m ? v : m);
+      }
+      final double chartMax = maxVal > 0 ? maxVal * 1.15 : 1000000;
 
-      final hourlySales = _calculateHourlySales(filteredList);
-      final maxVal = hourlySales.values.fold<double>(
-        0,
-        (max, v) => v > max ? v : max,
-      );
-      final double chartMax = maxVal > 1000000 ? maxVal * 1.15 : 1000000;
-
-      final isProcessing = exportingSummary ||
-          exportingDetail ||
-          exportingPdf;
+      final isProcessing = exportingSummary || exportingDetail || exportingPdf;
 
       return Scaffold(
         backgroundColor: Colors.transparent,
@@ -1278,26 +1338,30 @@ class _ReportPageState extends State<ReportPage>
                         _KpiCard(
                           title: 'Total Omzet',
                           value: rupiah(revenue),
-                          delta: transactionCount > 0 ? '+12%' : '-',
-                          showArrow: transactionCount > 0,
+                          delta: transactionCount > 0 ? deltaRevenue : '-',
+                          showArrow: transactionCount > 0 && !deltaRevenue.startsWith('-'),
+                          isUp: transactionCount > 0 && !deltaRevenue.startsWith('-'),
                         ),
                         _KpiCard(
                           title: 'Total Transaksi',
                           value: '$transactionCount',
-                          delta: transactionCount > 0 ? '+9%' : '-',
-                          showArrow: transactionCount > 0,
+                          delta: transactionCount > 0 ? deltaCount : '-',
+                          showArrow: transactionCount > 0 && !deltaCount.startsWith('-'),
+                          isUp: transactionCount > 0 && !deltaCount.startsWith('-'),
                         ),
                         _KpiCard(
                           title: 'Rata-rata Transaksi',
                           value: rupiah(average),
-                          delta: transactionCount > 0 ? '+5%' : '-',
-                          showArrow: transactionCount > 0,
+                          delta: transactionCount > 0 ? deltaRevenue : '-',
+                          showArrow: transactionCount > 0 && !deltaRevenue.startsWith('-'),
+                          isUp: transactionCount > 0 && !deltaRevenue.startsWith('-'),
                         ),
                         _KpiCard(
                           title: 'Estimasi Keuntungan',
                           value: rupiah(profit),
-                          delta: transactionCount > 0 ? '+15%' : '-',
-                          showArrow: transactionCount > 0,
+                          delta: transactionCount > 0 ? deltaRevenue : '-',
+                          showArrow: transactionCount > 0 && !deltaRevenue.startsWith('-'),
+                          isUp: transactionCount > 0 && !deltaRevenue.startsWith('-'),
                         ),
                       ],
                     );
@@ -1335,7 +1399,13 @@ class _ReportPageState extends State<ReportPage>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  SalesBarChart(hourlySales: hourlySales, maxAmount: chartMax),
+                  _AdaptiveChart(
+                    mode: chartMode,
+                    hourlySales: hourlySales,
+                    dailySales: dailySales,
+                    monthlySales: monthlySales,
+                    maxAmount: chartMax,
+                  ),
                 ],
               ),
             ),
@@ -1391,18 +1461,22 @@ class _ReportPageState extends State<ReportPage>
   );
 }
 
+enum _ChartMode { hourly, daily, monthly }
+
 class _KpiCard extends StatelessWidget {
   const _KpiCard({
     required this.title,
     required this.value,
     required this.delta,
     this.showArrow = true,
+    this.isUp = true,
   });
 
   final String title;
   final String value;
   final String delta;
   final bool showArrow;
+  final bool isUp;
 
   @override
   Widget build(BuildContext context) {
@@ -1444,10 +1518,10 @@ class _KpiCard extends StatelessWidget {
           Row(
             children: [
               if (showArrow) ...[
-                const Icon(
-                  Icons.arrow_upward_rounded,
+                Icon(
+                  isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
                   size: 12,
-                  color: AppColors.success,
+                  color: isUp ? AppColors.success : AppColors.danger,
                 ),
                 const SizedBox(width: 2),
               ],
@@ -1456,7 +1530,9 @@ class _KpiCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
-                  color: showArrow ? AppColors.success : AppColors.textMuted,
+                  color: showArrow
+                      ? (isUp ? AppColors.success : AppColors.danger)
+                      : AppColors.textMuted,
                 ),
               ),
             ],
@@ -1464,6 +1540,265 @@ class _KpiCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Grafik adaptif: per jam / per hari / per bulan
+// ─────────────────────────────────────────────────────────────────────────────
+class _AdaptiveChart extends StatelessWidget {
+  const _AdaptiveChart({
+    required this.mode,
+    required this.hourlySales,
+    required this.dailySales,
+    required this.monthlySales,
+    required this.maxAmount,
+  });
+
+  final _ChartMode mode;
+  final Map<int, double> hourlySales;
+  final Map<DateTime, double> dailySales;
+  final Map<DateTime, double> monthlySales;
+  final double maxAmount;
+
+  static const _months = [
+    'Jan','Feb','Mar','Apr','Mei','Jun',
+    'Jul','Agu','Sep','Okt','Nov','Des',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    switch (mode) {
+      case _ChartMode.hourly:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Distribusi per Jam',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted,
+                  fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            SalesBarChart(hourlySales: hourlySales, maxAmount: maxAmount),
+          ],
+        );
+
+      case _ChartMode.daily:
+        final sorted = dailySales.keys.toList()..sort();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Penjualan per Hari',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted,
+                  fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 180,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Y-axis
+                  SizedBox(
+                    width: 36,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final ratio in [1.0, 0.75, 0.5, 0.25, 0.0])
+                          Text(
+                            _fmt(maxAmount * ratio),
+                            style: const TextStyle(
+                                fontSize: 9, color: AppColors.textMuted,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        const SizedBox(height: 18),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Bars
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: sorted.map((day) {
+                          final val = dailySales[day] ?? 0;
+                          final ratio = maxAmount > 0 ? val / maxAmount : 0.0;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Flexible(
+                                  child: FractionallySizedBox(
+                                    heightFactor: ratio.clamp(0.0, 1.0),
+                                    child: Container(
+                                      width: 10,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${day.day}',
+                                  style: const TextStyle(
+                                      fontSize: 8, color: AppColors.textMuted),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+      case _ChartMode.monthly:
+        final sorted = monthlySales.keys.toList()..sort();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Penjualan per Bulan',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted,
+                  fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 200,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Y-axis
+                  SizedBox(
+                    width: 42,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final ratio in [1.0, 0.75, 0.5, 0.25, 0.0])
+                          Text(
+                            _fmt(maxAmount * ratio),
+                            style: const TextStyle(
+                                fontSize: 9, color: AppColors.textMuted,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        const SizedBox(height: 22),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Bars
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (ctx, box) {
+                        final barW = (box.maxWidth / sorted.length - 4)
+                            .clamp(18.0, 48.0);
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: sorted.map((m) {
+                              final val   = monthlySales[m] ?? 0;
+                              final ratio = maxAmount > 0 ? val / maxAmount : 0.0;
+                              final isCur = m.year == DateTime.now().year &&
+                                  m.month == DateTime.now().month;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    // label nilai di atas bar
+                                    Text(
+                                      _fmtShort(val),
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w700,
+                                        color: isCur
+                                            ? AppColors.primary
+                                            : AppColors.textMuted,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    SizedBox(
+                                      width: barW,
+                                      height: 160,
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          Flexible(
+                                            child: FractionallySizedBox(
+                                              heightFactor: ratio.clamp(0.02, 1.0),
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: isCur
+                                                      ? AppColors.primary
+                                                      : AppColors.primarySoft,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  border: isCur
+                                                      ? Border.all(
+                                                          color: AppColors.primary,
+                                                          width: 1.5)
+                                                      : null,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${_months[m.month - 1]}\n${m.year}',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: isCur
+                                            ? FontWeight.w800
+                                            : FontWeight.w500,
+                                        color: isCur
+                                            ? AppColors.primary
+                                            : AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+    }
+  }
+
+  static String _fmt(double v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000) return '${(v / 1000).round()}K';
+    return v.round().toString();
+  }
+
+  static String _fmtShort(double v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000) return '${(v / 1000).round()}K';
+    return '';
   }
 }
 
