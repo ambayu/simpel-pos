@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -515,6 +516,165 @@ class ReportExporter {
       fileName: fileName,
       dialogTitle: 'Simpan Laporan Detail Excel',
     );
+  }
+
+  static String generateZipFileName({
+    required DateTime startMonth,
+    required DateTime endMonth,
+    String? suffix,
+  }) {
+    const months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    if (startMonth.year == endMonth.year && startMonth.month == endMonth.month) {
+      return 'Laporan-PDF-${months[startMonth.month - 1]}-${startMonth.year}.zip';
+    }
+    final sStr = '${months[startMonth.month - 1]}-${startMonth.year}';
+    final eStr = '${months[endMonth.month - 1]}-${endMonth.year}';
+    if (suffix != null && suffix.trim().isNotEmpty) {
+      return 'Laporan-PDF-$sStr-sampai-$eStr-${suffix.trim()}.zip';
+    }
+    return 'Laporan-PDF-$sStr-sampai-$eStr.zip';
+  }
+
+  /// Ekspor Arsip ZIP berisi file-file PDF per bulan
+  static Future<String> exportPdfZip(
+    List<SaleRecord> transactions, {
+    required DateTime startMonth,
+    required DateTime endMonth,
+    String? suffix,
+  }) async {
+    final startM = DateTime(startMonth.year, startMonth.month, 1);
+    final endM = DateTime(endMonth.year, endMonth.month + 1, 0, 23, 59, 59);
+
+    final filtered = transactions.where((t) {
+      return !t.createdAt.isBefore(startM) && !t.createdAt.isAfter(endM);
+    }).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    if (filtered.isEmpty) {
+      throw StateError('Tidak ada data transaksi pada rentang bulan yang dipilih.');
+    }
+
+    const monthNames = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+
+    // Kelompokkan per (Tahun, Bulan)
+    final monthlyGroups = <int, List<SaleRecord>>{};
+    for (final t in filtered) {
+      final key = t.createdAt.year * 100 + t.createdAt.month;
+      monthlyGroups.putIfAbsent(key, () => []).add(t);
+    }
+
+    final zipBytes = await generatePdfZipBytes(
+      transactions,
+      startMonth: startMonth,
+      endMonth: endMonth,
+    );
+
+    final fileName = generateZipFileName(
+      startMonth: startM,
+      endMonth: endM,
+      suffix: suffix,
+    );
+
+    return saveAndOpenFile(
+      bytes: zipBytes,
+      fileName: fileName,
+      dialogTitle: 'Simpan Arsip ZIP Laporan PDF',
+      mimeType: 'application/zip',
+    );
+  }
+
+  /// Menghasilkan Uint8List arsip ZIP berisi file-file PDF per bulan
+  static Future<Uint8List> generatePdfZipBytes(
+    List<SaleRecord> transactions, {
+    required DateTime startMonth,
+    required DateTime endMonth,
+  }) async {
+    final startM = DateTime(startMonth.year, startMonth.month, 1);
+    final endM = DateTime(endMonth.year, endMonth.month + 1, 0, 23, 59, 59);
+
+    final filtered = transactions.where((t) {
+      return !t.createdAt.isBefore(startM) && !t.createdAt.isAfter(endM);
+    }).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    if (filtered.isEmpty) {
+      throw StateError('Tidak ada data transaksi pada rentang bulan yang dipilih.');
+    }
+
+    const monthNames = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+
+    final monthlyGroups = <int, List<SaleRecord>>{};
+    for (final t in filtered) {
+      final key = t.createdAt.year * 100 + t.createdAt.month;
+      monthlyGroups.putIfAbsent(key, () => []).add(t);
+    }
+
+    final archive = Archive();
+
+    for (final entry in monthlyGroups.entries) {
+      final year = entry.key ~/ 100;
+      final month = entry.key % 100;
+      final mName = monthNames[month - 1];
+      final mTransactions = entry.value;
+
+      final mStart = DateTime(year, month, 1);
+      final mEnd = DateTime(year, month + 1, 0, 23, 59, 59);
+
+      final pdfBytes = await generateReportPdfBytes(
+        mTransactions,
+        startDate: mStart,
+        endDate: mEnd,
+      );
+
+      final pdfFileName = '$mName-$year.pdf';
+      archive.addFile(ArchiveFile(pdfFileName, pdfBytes.length, pdfBytes));
+    }
+
+    final zipEncoder = ZipEncoder();
+    final zipBytes = zipEncoder.encode(archive);
+    if (zipBytes == null) {
+      throw StateError('Gagal membuat arsip ZIP');
+    }
+    return Uint8List.fromList(zipBytes);
   }
 
   /// Ekspor Laporan Lengkap PDF (sesuai format cetak The Legend Hotpot landscape)

@@ -1,9 +1,11 @@
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:simpel_pos/src/models.dart';
 import 'package:simpel_pos/src/pos_store.dart';
 import 'package:simpel_pos/src/services/report_exporter.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test(
     'generateSummaryFileName dan generateDetailFileName menghasilkan format yang rapi dan konsisten',
     () {
@@ -90,10 +92,21 @@ void main() {
     },
   );
 
-  test('generateReportPdfBytes dengan 700+ transaksi data seed', () async {
+  test('generatePdfZipBytes membuat arsip ZIP berisi file PDF per bulan', () async {
     final store = PosStore(seedDemoData: true);
-    expect(store.transactions.length, greaterThan(500));
-    final bytes = await ReportExporter.generateReportPdfBytes(store.transactions);
-    expect(bytes, isNotEmpty);
+    final zipBytes = await ReportExporter.generatePdfZipBytes(
+      store.transactions,
+      startMonth: DateTime(2025, 1),
+      endMonth: DateTime(2025, 3),
+    );
+    expect(zipBytes, isNotEmpty);
+
+    // Verifikasi isi arsip ZIP
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+    expect(archive.length, 3);
+    final fileNames = archive.map((f) => f.name).toList();
+    expect(fileNames, contains('Januari-2025.pdf'));
+    expect(fileNames, contains('Februari-2025.pdf'));
+    expect(fileNames, contains('Maret-2025.pdf'));
   });
 }

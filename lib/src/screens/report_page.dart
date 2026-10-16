@@ -508,6 +508,7 @@ class _ReportPageState extends State<ReportPage>
   bool exportingSummary = false;
   bool exportingDetail = false;
   bool exportingPdf = false;
+  bool exportingZip = false;
   bool importingExcel = false;
 
   DateRangePreset selectedPreset = DateRangePreset.all;
@@ -1004,6 +1005,58 @@ class _ReportPageState extends State<ReportPage>
     }
   }
 
+  Future<void> _showZipExportDialog() async {
+    _closeFab();
+    if (widget.store.transactions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada data transaksi untuk diekspor ke ZIP')),
+      );
+      return;
+    }
+
+    final sorted = List<SaleRecord>.from(widget.store.transactions)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final earliest = sorted.first.createdAt;
+    final latest = sorted.last.createdAt;
+
+    final selectedRange = await showDialog<({DateTime start, DateTime end})>(
+      context: context,
+      builder: (ctx) => _MonthYearRangeDialog(
+        initialStart: DateTime(earliest.year, earliest.month),
+        initialEnd: DateTime(latest.year, latest.month),
+        minDate: DateTime(earliest.year, earliest.month),
+        maxDate: DateTime(latest.year, latest.month),
+      ),
+    );
+
+    if (selectedRange == null || !mounted) return;
+
+    setState(() => exportingZip = true);
+    try {
+      final path = await ReportExporter.exportPdfZip(
+        widget.store.transactions,
+        startMonth: selectedRange.start,
+        endMonth: selectedRange.end,
+        suffix: _buildFilterSuffix(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Arsip ZIP Laporan PDF tersimpan di: $path'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengekspor ZIP: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => exportingZip = false);
+    }
+  }
+
   Future<void> _importExcel() async {
     setState(() => importingExcel = true);
     try {
@@ -1074,7 +1127,16 @@ class _ReportPageState extends State<ReportPage>
                       ),
                       const SizedBox(height: 8),
 
-                      // Opsi 3: Download Rekap (tahan 4 detik = import Excel)
+                      // Opsi 3: Download ZIP PDF (Per Bulan)
+                      _SpeedDialItem(
+                        label: 'Download ZIP PDF',
+                        icon: Icons.folder_zip_rounded,
+                        color: const Color(0xFFD35400),
+                        onTap: _showZipExportDialog,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Opsi 4: Download Rekap (tahan 4 detik = import Excel)
                       _SpeedDialItemWithHold(
                         label: 'Download Rekap',
                         icon: Icons.summarize_rounded,
@@ -1091,7 +1153,7 @@ class _ReportPageState extends State<ReportPage>
                       ),
                       const SizedBox(height: 8),
 
-                      // Opsi 4: Download Detail
+                      // Opsi 5: Download Detail
                       _SpeedDialItem(
                         label: 'Download Detail',
                         icon: Icons.list_alt_rounded,
@@ -1249,7 +1311,7 @@ class _ReportPageState extends State<ReportPage>
       }
       final double chartMax = maxVal > 0 ? maxVal * 1.15 : 1000000;
 
-      final isProcessing = exportingSummary || exportingDetail || exportingPdf;
+      final isProcessing = exportingSummary || exportingDetail || exportingPdf || exportingZip;
 
       return Scaffold(
         backgroundColor: Colors.transparent,
@@ -2681,6 +2743,318 @@ class _HiddenActionExportButtonState extends State<_HiddenActionExportButton> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dialog Pemilih Rentang Bulan & Tahun untuk Download ZIP PDF
+// ─────────────────────────────────────────────────────────────────────────────
+class _MonthYearRangeDialog extends StatefulWidget {
+  const _MonthYearRangeDialog({
+    required this.initialStart,
+    required this.initialEnd,
+    required this.minDate,
+    required this.maxDate,
+  });
+
+  final DateTime initialStart;
+  final DateTime initialEnd;
+  final DateTime minDate;
+  final DateTime maxDate;
+
+  @override
+  State<_MonthYearRangeDialog> createState() => _MonthYearRangeDialogState();
+}
+
+class _MonthYearRangeDialogState extends State<_MonthYearRangeDialog> {
+  late int startYear;
+  late int startMonth;
+  late int endYear;
+  late int endMonth;
+
+  static const _monthNames = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    startYear = widget.initialStart.year;
+    startMonth = widget.initialStart.month;
+    endYear = widget.initialEnd.year;
+    endMonth = widget.initialEnd.month;
+  }
+
+  bool get _isValidRange {
+    if (startYear < endYear) return true;
+    if (startYear == endYear && startMonth <= endMonth) return true;
+    return false;
+  }
+
+  int get _selectedMonthsCount {
+    if (!_isValidRange) return 0;
+    return (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+  }
+
+  List<int> get _yearsList {
+    final startY = widget.minDate.year - 1;
+    final endY = widget.maxDate.year + 2;
+    return [for (var y = startY; y <= endY; y++) y];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Dialog
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD35400).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.folder_zip_rounded,
+                      color: Color(0xFFD35400),
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Download Arsip PDF (ZIP)',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Pilih rentang bulan untuk diunduh terpisah',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Pilihan Bulan Awal
+              const Text(
+                'Dari Bulan & Tahun:',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: _buildDropdown<int>(
+                      value: startMonth,
+                      items: List.generate(12, (i) => i + 1),
+                      labelBuilder: (m) => _monthNames[m - 1],
+                      onChanged: (v) => setState(() => startMonth = v!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 4,
+                    child: _buildDropdown<int>(
+                      value: startYear,
+                      items: _yearsList,
+                      labelBuilder: (y) => '$y',
+                      onChanged: (v) => setState(() => startYear = v!),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Pilihan Bulan Akhir
+              const Text(
+                'Sampai Bulan & Tahun:',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: _buildDropdown<int>(
+                      value: endMonth,
+                      items: List.generate(12, (i) => i + 1),
+                      labelBuilder: (m) => _monthNames[m - 1],
+                      onChanged: (v) => setState(() => endMonth = v!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 4,
+                    child: _buildDropdown<int>(
+                      value: endYear,
+                      items: _yearsList,
+                      labelBuilder: (y) => '$y',
+                      onChanged: (v) => setState(() => endYear = v!),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Info Ringkasan File yang akan dibuat
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _isValidRange
+                      ? AppColors.primarySoft.withValues(alpha: 0.5)
+                      : AppColors.danger.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _isValidRange ? AppColors.border : AppColors.danger.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isValidRange ? Icons.info_outline_rounded : Icons.error_outline_rounded,
+                      size: 18,
+                      color: _isValidRange ? AppColors.primary : AppColors.danger,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _isValidRange
+                            ? 'Akan membuat berkas ZIP berisi $_selectedMonthsCount file PDF bulanan.'
+                            : 'Bulan awal tidak boleh lebih baru dari bulan akhir!',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _isValidRange ? AppColors.textPrimary : AppColors.danger,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // Tombol Batal & Unduh
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                    ),
+                    child: const Text('Batal'),
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton.icon(
+                    onPressed: _isValidRange
+                        ? () {
+                            Navigator.of(context).pop(
+                              (
+                                start: DateTime(startYear, startMonth),
+                                end: DateTime(endYear, endMonth),
+                              ),
+                            );
+                          }
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFD35400),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.download_rounded, size: 18),
+                    label: const Text(
+                      'Unduh ZIP',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required T value,
+    required List<T> items,
+    required String Function(T) labelBuilder,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+          items: items.map((item) {
+            return DropdownMenuItem<T>(
+              value: item,
+              child: Text(labelBuilder(item)),
+            );
+          }).toList(),
+          onChanged: onChanged,
         ),
       ),
     );
