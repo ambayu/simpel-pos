@@ -576,17 +576,6 @@ class ReportExporter {
   }) async {
     final pdf = pw.Document();
 
-    final detailRows = <List<String>>[];
-    var rowNo = 1;
-    var totalQty = 0;
-    var totalPendapatanSebelumPajak = 0;
-    var totalPajak = 0;
-    final productSummary = <String, ({int qty, int revenue})>{};
-
-    final sortedTransactions = List<SaleRecord>.from(transactions)
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-    // Hitung judul bulan & tahun untuk laporan
     const monthNames = [
       'JANUARI',
       'FEBRUARI',
@@ -601,55 +590,15 @@ class ReportExporter {
       'NOVEMBER',
       'DESEMBER',
     ];
-    final String periodTitle;
-    if (startDate != null && endDate != null) {
-      if (startDate.year == endDate.year && startDate.month == endDate.month) {
-        periodTitle = 'BULAN ${monthNames[startDate.month - 1]} ${startDate.year}';
-      } else {
-        periodTitle = 'PERIODE ${monthNames[startDate.month - 1]} ${startDate.year} - ${monthNames[endDate.month - 1]} ${endDate.year}';
-      }
-    } else {
-      final refDate = startDate ?? (sortedTransactions.isNotEmpty ? sortedTransactions.first.createdAt : DateTime.now());
-      periodTitle = 'BULAN ${monthNames[refDate.month - 1]} ${refDate.year}';
-    }
 
+    final sortedTransactions = List<SaleRecord>.from(transactions)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // Kelompokkan transaksi per bulan (key: YYYYMM)
+    final monthlyGroups = <int, List<SaleRecord>>{};
     for (final t in sortedTransactions) {
-      final itemCount = t.items.isEmpty ? 1 : t.items.length;
-      final allocatedTax = (t.tax / itemCount).round();
-      final allocatedDiscount = (t.discount / itemCount).round();
-
-      for (final item in t.items) {
-        final lineSubtotal = item.total;
-        final lineTax = allocatedTax;
-        final lineDiscount = allocatedDiscount;
-        final lineTotal = lineSubtotal - lineDiscount + lineTax;
-
-        totalQty += item.quantity;
-        totalPendapatanSebelumPajak += lineSubtotal;
-        totalPajak += lineTax;
-
-        final existing = productSummary[item.productName] ?? (qty: 0, revenue: 0);
-        productSummary[item.productName] = (
-          qty: existing.qty + item.quantity,
-          revenue: existing.revenue + lineSubtotal,
-        );
-
-        detailRows.add([
-          '${rowNo++}',
-          t.id,
-          _formatDateTime(t.createdAt),
-          t.orderLabel,
-          t.cashier,
-          t.paymentMethod == 'Tunai' ? 'Cash' : t.paymentMethod,
-          item.productName,
-          '${item.quantity}',
-          _formatNumber(item.unitPrice),
-          _formatNumber(lineSubtotal),
-          _formatNumber(lineDiscount),
-          _formatNumber(lineTax),
-          _formatNumber(lineTotal),
-        ]);
-      }
+      final key = t.createdAt.year * 100 + t.createdAt.month;
+      monthlyGroups.putIfAbsent(key, () => []).add(t);
     }
 
     const detailHeaders = [
@@ -684,122 +633,6 @@ class ReportExporter {
       12: pw.FixedColumnWidth(60),
     };
 
-    final headerBgColor = PdfColor.fromHex('#D8E9F6');
-    final rowBorderColor = PdfColor.fromHex('#D0DCE5');
-
-    // Halaman Detail Transaksi
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.landscape,
-        maxPages: 1000,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        header: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              if (context.pageNumber == 1) ...[
-                pw.Center(
-                  child: pw.Text(
-                    'LAPORAN THE LEGEND HOT POT',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: 2),
-                pw.Center(
-                  child: pw.Text(
-                    periodTitle,
-                    style: pw.TextStyle(
-                      fontSize: 11,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  'DETAIL TRANSAKSI PENJUALAN',
-                  style: pw.TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-              ],
-              pw.Container(
-                color: headerBgColor,
-                padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
-                child: pw.Table(
-                  columnWidths: detailWidths,
-                  children: [
-                    pw.TableRow(
-                      children: detailHeaders.map((h) {
-                        final isNumber = h.contains('(Rp)') || h == 'Qty' || h == 'No.';
-                        return pw.Padding(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 2),
-                          child: pw.Text(
-                            h,
-                            textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
-                            style: pw.TextStyle(
-                              fontSize: 6.2,
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-        build: (context) {
-          return [
-            pw.Table(
-              columnWidths: detailWidths,
-              children: detailRows.map((row) {
-                return pw.TableRow(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border(
-                      bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
-                    ),
-                  ),
-                  children: List.generate(row.length, (idx) {
-                    final cell = row[idx];
-                    final isNumber = idx == 0 || idx == 7 || idx >= 8;
-                    return pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 2.2, horizontal: 2),
-                      child: pw.Text(
-                        cell,
-                        textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
-                        style: const pw.TextStyle(fontSize: 6.0),
-                      ),
-                    );
-                  }),
-                );
-              }).toList(),
-            ),
-          ];
-        },
-      ),
-    );
-
-    final sortedProductList = productSummary.entries.toList()
-      ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
-
-    final rekapRows = <List<String>>[];
-    for (var i = 0; i < sortedProductList.length; i++) {
-      final entry = sortedProductList[i];
-      rekapRows.add([
-        '${i + 1}',
-        entry.key,
-        '${entry.value.qty}',
-        'Rp${_formatNumber(entry.value.revenue)}',
-      ]);
-    }
-
     const rekapWidths = <int, pw.TableColumnWidth>{
       0: pw.FixedColumnWidth(40),
       1: pw.FlexColumnWidth(),
@@ -807,183 +640,351 @@ class ReportExporter {
       3: pw.FixedColumnWidth(180),
     };
 
-    final totalSetelahPajak = totalPendapatanSebelumPajak + totalPajak;
+    final headerBgColor = PdfColor.fromHex('#D8E9F6');
+    final rowBorderColor = PdfColor.fromHex('#D0DCE5');
 
-    // Halaman Rekap Produk
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.landscape,
-        maxPages: 1000,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        header: (context) {
-          if (context.pageNumber == context.pagesCount) {
-            // Biarkan header default
-          }
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              if (context.pageNumber == 1) ...[
-                pw.Center(
-                  child: pw.Text(
-                    'LAPORAN THE LEGEND HOT POT',
+    // Buat laporan PDF per bulan
+    for (final entry in monthlyGroups.entries) {
+      final year = entry.key ~/ 100;
+      final month = entry.key % 100;
+      final monthName = monthNames[month - 1];
+      final monthTransactions = entry.value;
+      final periodTitle = 'BULAN $monthName $year';
+
+      final detailRows = <List<String>>[];
+      var rowNo = 1;
+      var totalQty = 0;
+      var totalPendapatanSebelumPajak = 0;
+      var totalPajak = 0;
+      final productSummary = <String, ({int qty, int revenue})>{};
+
+      for (final t in monthTransactions) {
+        final itemCount = t.items.isEmpty ? 1 : t.items.length;
+        final allocatedTax = (t.tax / itemCount).round();
+        final allocatedDiscount = (t.discount / itemCount).round();
+
+        for (final item in t.items) {
+          final lineSubtotal = item.total;
+          final lineTax = allocatedTax;
+          final lineDiscount = allocatedDiscount;
+          final lineTotal = lineSubtotal - lineDiscount + lineTax;
+
+          totalQty += item.quantity;
+          totalPendapatanSebelumPajak += lineSubtotal;
+          totalPajak += lineTax;
+
+          final existing = productSummary[item.productName] ?? (qty: 0, revenue: 0);
+          productSummary[item.productName] = (
+            qty: existing.qty + item.quantity,
+            revenue: existing.revenue + lineSubtotal,
+          );
+
+          detailRows.add([
+            '${rowNo++}',
+            t.id,
+            _formatDateTime(t.createdAt),
+            t.orderLabel,
+            t.cashier,
+            t.paymentMethod == 'Tunai' ? 'Cash' : t.paymentMethod,
+            item.productName,
+            '${item.quantity}',
+            _formatNumber(item.unitPrice),
+            _formatNumber(lineSubtotal),
+            _formatNumber(lineDiscount),
+            _formatNumber(lineTax),
+            _formatNumber(lineTotal),
+          ]);
+        }
+      }
+
+      // Halaman Detail Transaksi Bulan Ini
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          maxPages: 1000,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          header: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                if (context.pageNumber == 1) ...[
+                  pw.Center(
+                    child: pw.Text(
+                      'LAPORAN THE LEGEND HOT POT',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Center(
+                    child: pw.Text(
+                      periodTitle,
+                      style: pw.TextStyle(
+                        fontSize: 11,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    'DETAIL TRANSAKSI PENJUALAN',
                     style: pw.TextStyle(
-                      fontSize: 14,
+                      fontSize: 9.5,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
-                ),
-                pw.SizedBox(height: 2),
-                pw.Center(
-                  child: pw.Text(
-                    periodTitle,
-                    style: pw.TextStyle(
-                      fontSize: 11,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                  pw.SizedBox(height: 4),
+                ],
+                pw.Container(
+                  color: headerBgColor,
+                  padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+                  child: pw.Table(
+                    columnWidths: detailWidths,
+                    children: [
+                      pw.TableRow(
+                        children: detailHeaders.map((h) {
+                          final isNumber = h.contains('(Rp)') || h == 'Qty' || h == 'No.';
+                          return pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 2),
+                            child: pw.Text(
+                              h,
+                              textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
+                              style: pw.TextStyle(
+                                fontSize: 6.2,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
                 ),
-                pw.SizedBox(height: 10),
-                pw.Text(
-                  'REKAP PENJUALAN PRODUK',
-                  style: pw.TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
               ],
+            );
+          },
+          build: (context) {
+            return [
+              pw.Table(
+                columnWidths: detailWidths,
+                children: detailRows.map((row) {
+                  return pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
+                      ),
+                    ),
+                    children: List.generate(row.length, (idx) {
+                      final cell = row[idx];
+                      final isNumber = idx == 0 || idx == 7 || idx >= 8;
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 2.2, horizontal: 2),
+                        child: pw.Text(
+                          cell,
+                          textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
+                          style: const pw.TextStyle(fontSize: 6.0),
+                        ),
+                      );
+                    }),
+                  );
+                }).toList(),
+              ),
+            ];
+          },
+        ),
+      );
+
+      final sortedProductList = productSummary.entries.toList()
+        ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
+
+      final rekapRows = <List<String>>[];
+      for (var i = 0; i < sortedProductList.length; i++) {
+        final prodEntry = sortedProductList[i];
+        rekapRows.add([
+          '${i + 1}',
+          prodEntry.key,
+          '${prodEntry.value.qty}',
+          'Rp${_formatNumber(prodEntry.value.revenue)}',
+        ]);
+      }
+
+      final totalSetelahPajak = totalPendapatanSebelumPajak + totalPajak;
+
+      // Halaman Rekap Produk Bulan Ini
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          maxPages: 1000,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          header: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                if (context.pageNumber == 1) ...[
+                  pw.Center(
+                    child: pw.Text(
+                      'LAPORAN THE LEGEND HOT POT',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Center(
+                    child: pw.Text(
+                      periodTitle,
+                      style: pw.TextStyle(
+                        fontSize: 11,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(height: 10),
+                  pw.Text(
+                    'REKAP PENJUALAN PRODUK',
+                    style: pw.TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                ],
+                pw.Container(
+                  color: headerBgColor,
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                  child: pw.Table(
+                    columnWidths: rekapWidths,
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Text(
+                            'No.',
+                            textAlign: pw.TextAlign.center,
+                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            'Nama Produk',
+                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            'Total Terjual (Qty)',
+                            textAlign: pw.TextAlign.right,
+                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            'Total Pendapatan (Rp)',
+                            textAlign: pw.TextAlign.right,
+                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+          build: (context) {
+            return [
+              pw.Table(
+                columnWidths: rekapWidths,
+                children: rekapRows.map((r) {
+                  return pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
+                      ),
+                    ),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(r[0], textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 7)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(r[1], style: const pw.TextStyle(fontSize: 7)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(r[2], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(r[3], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+              pw.SizedBox(height: 12),
               pw.Container(
-                color: headerBgColor,
-                padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                child: pw.Table(
-                  columnWidths: rekapWidths,
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: rowBorderColor, width: 0.5),
+                ),
+                padding: const pw.EdgeInsets.all(6),
+                child: pw.Column(
                   children: [
-                    pw.TableRow(
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text(
-                          'No.',
-                          textAlign: pw.TextAlign.center,
-                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                          'TOTAL PENDAPATAN (SEBELUM PAJAK)',
+                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.Row(
+                          children: [
+                            pw.Text(
+                              '$totalQty',
+                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                            ),
+                            pw.SizedBox(width: 80),
+                            pw.Text(
+                              'Rp${_formatNumber(totalPendapatanSebelumPajak)}',
+                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    pw.Divider(thickness: 0.4, color: rowBorderColor),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'TOTAL PAJAK 10%',
+                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
                         ),
                         pw.Text(
-                          'Nama Produk',
-                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                          'Rp${_formatNumber(totalPajak)}',
+                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    pw.Divider(thickness: 0.4, color: rowBorderColor),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'TOTAL SETELAH PAJAK',
+                          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
                         ),
                         pw.Text(
-                          'Total Terjual (Qty)',
-                          textAlign: pw.TextAlign.right,
-                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                        ),
-                        pw.Text(
-                          'Total Pendapatan (Rp)',
-                          textAlign: pw.TextAlign.right,
-                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                          'Rp${_formatNumber(totalSetelahPajak)}',
+                          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-            ],
-          );
-        },
-        build: (context) {
-          return [
-            pw.Table(
-              columnWidths: rekapWidths,
-              children: rekapRows.map((r) {
-                return pw.TableRow(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border(
-                      bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
-                    ),
-                  ),
-                  children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                      child: pw.Text(r[0], textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 7)),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                      child: pw.Text(r[1], style: const pw.TextStyle(fontSize: 7)),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                      child: pw.Text(r[2], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                      child: pw.Text(r[3], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-            pw.SizedBox(height: 12),
-            pw.Container(
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: rowBorderColor, width: 0.5),
-              ),
-              padding: const pw.EdgeInsets.all(6),
-              child: pw.Column(
-                children: [
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        'TOTAL PENDAPATAN (SEBELUM PAJAK)',
-                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                      ),
-                      pw.Row(
-                        children: [
-                          pw.Text(
-                            '$totalQty',
-                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                          ),
-                          pw.SizedBox(width: 80),
-                          pw.Text(
-                            'Rp${_formatNumber(totalPendapatanSebelumPajak)}',
-                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  pw.Divider(thickness: 0.4, color: rowBorderColor),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        'TOTAL PAJAK 10%',
-                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                      ),
-                      pw.Text(
-                        'Rp${_formatNumber(totalPajak)}',
-                        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  pw.Divider(thickness: 0.4, color: rowBorderColor),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        'TOTAL SETELAH PAJAK',
-                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
-                      ),
-                      pw.Text(
-                        'Rp${_formatNumber(totalSetelahPajak)}',
-                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ];
-        },
-      ),
-    );
+            ];
+          },
+        ),
+      );
+    }
 
     return pdf.save();
   }
