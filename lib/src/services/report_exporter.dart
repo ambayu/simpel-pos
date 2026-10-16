@@ -254,23 +254,52 @@ class ReportExporter {
       grandTotalQty += monthQty;
       grandTotalPendapatan += monthRevenue;
 
-      // 4. Baris Subtotal per Bulan
+      final monthTax = (monthRevenue * 0.1).round();
+      final monthAfterTax = monthRevenue + monthTax;
+
+      // 4. Baris Subtotal per Bulan (Sesuai Gambar)
       sheet.appendRow([
         TextCellValue(''),
-        TextCellValue('TOTAL BULAN $monthName $year'),
+        TextCellValue('TOTAL PENDAPATAN (SEBELUM PAJAK)'),
         IntCellValue(monthQty),
         IntCellValue(monthRevenue),
+      ]);
+      sheet.appendRow([
+        TextCellValue('TOTAL PAJAK 10%'),
+        TextCellValue(''),
+        TextCellValue(''),
+        IntCellValue(monthTax),
+      ]);
+      sheet.appendRow([
+        TextCellValue('TOTAL SETELAH PAJAK'),
+        TextCellValue(''),
+        TextCellValue(''),
+        IntCellValue(monthAfterTax),
       ]);
     }
 
     // 5. Grand Total Keseluruhan (jika lebih dari 1 bulan atau ada transaksi)
     if (monthlyGroups.length > 1) {
+      final grandTax = (grandTotalPendapatan * 0.1).round();
+      final grandAfterTax = grandTotalPendapatan + grandTax;
       sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
       sheet.appendRow([
         TextCellValue(''),
-        TextCellValue('GRAND TOTAL KESELURUHAN'),
+        TextCellValue('GRAND TOTAL PENDAPATAN (SEBELUM PAJAK)'),
         IntCellValue(grandTotalQty),
         IntCellValue(grandTotalPendapatan),
+      ]);
+      sheet.appendRow([
+        TextCellValue('GRAND TOTAL PAJAK 10%'),
+        TextCellValue(''),
+        TextCellValue(''),
+        IntCellValue(grandTax),
+      ]);
+      sheet.appendRow([
+        TextCellValue('GRAND TOTAL SETELAH PAJAK'),
+        TextCellValue(''),
+        TextCellValue(''),
+        IntCellValue(grandAfterTax),
       ]);
     }
 
@@ -567,28 +596,6 @@ class ReportExporter {
       throw StateError('Tidak ada data transaksi pada rentang bulan yang dipilih.');
     }
 
-    const monthNames = [
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-
-    // Kelompokkan per (Tahun, Bulan)
-    final monthlyGroups = <int, List<SaleRecord>>{};
-    for (final t in filtered) {
-      final key = t.createdAt.year * 100 + t.createdAt.month;
-      monthlyGroups.putIfAbsent(key, () => []).add(t);
-    }
-
     final zipBytes = await generatePdfZipBytes(
       transactions,
       startMonth: startMonth,
@@ -801,7 +808,7 @@ class ReportExporter {
     };
 
     final headerBgColor = PdfColor.fromHex('#D8E9F6');
-    final rowBorderColor = PdfColor.fromHex('#D0DCE5');
+    final rowBorderColor = PdfColor.fromHex('#546E7A');
 
     // Buat laporan PDF per bulan
     for (final entry in monthlyGroups.entries) {
@@ -895,33 +902,8 @@ class ReportExporter {
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
-                  pw.SizedBox(height: 4),
+                  pw.SizedBox(height: 6),
                 ],
-                pw.Container(
-                  color: headerBgColor,
-                  padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
-                  child: pw.Table(
-                    columnWidths: detailWidths,
-                    children: [
-                      pw.TableRow(
-                        children: detailHeaders.map((h) {
-                          final isNumber = h.contains('(Rp)') || h == 'Qty' || h == 'No.';
-                          return pw.Padding(
-                            padding: const pw.EdgeInsets.symmetric(horizontal: 2),
-                            child: pw.Text(
-                              h,
-                              textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
-                              style: pw.TextStyle(
-                                fontSize: 6.2,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             );
           },
@@ -929,27 +911,42 @@ class ReportExporter {
             return [
               pw.Table(
                 columnWidths: detailWidths,
-                children: detailRows.map((row) {
-                  return pw.TableRow(
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
-                      ),
-                    ),
-                    children: List.generate(row.length, (idx) {
-                      final cell = row[idx];
-                      final isNumber = idx == 0 || idx == 7 || idx >= 8;
+                border: pw.TableBorder.all(color: rowBorderColor, width: 0.5),
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: headerBgColor),
+                    children: detailHeaders.map((h) {
+                      final isNumber = h.contains('(Rp)') || h == 'Qty' || h == 'No.';
                       return pw.Padding(
-                        padding: const pw.EdgeInsets.symmetric(vertical: 2.2, horizontal: 2),
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
                         child: pw.Text(
-                          cell,
+                          h,
                           textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
-                          style: const pw.TextStyle(fontSize: 6.0),
+                          style: pw.TextStyle(
+                            fontSize: 6.2,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
                       );
-                    }),
-                  );
-                }).toList(),
+                    }).toList(),
+                  ),
+                  ...detailRows.map((row) {
+                    return pw.TableRow(
+                      children: List.generate(row.length, (idx) {
+                        final cell = row[idx];
+                        final isNumber = idx == 0 || idx == 7 || idx >= 8;
+                        return pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(vertical: 2.2, horizontal: 2),
+                          child: pw.Text(
+                            cell,
+                            textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
+                            style: const pw.TextStyle(fontSize: 6.0),
+                          ),
+                        );
+                      }),
+                    );
+                  }),
+                ],
               ),
             ];
           },
@@ -1008,42 +1005,11 @@ class ReportExporter {
                     style: pw.TextStyle(
                       fontSize: 9.5,
                       fontWeight: pw.FontWeight.bold,
+                      fontStyle: pw.FontStyle.italic,
                     ),
                   ),
-                  pw.SizedBox(height: 4),
+                  pw.SizedBox(height: 6),
                 ],
-                pw.Container(
-                  color: headerBgColor,
-                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                  child: pw.Table(
-                    columnWidths: rekapWidths,
-                    children: [
-                      pw.TableRow(
-                        children: [
-                          pw.Text(
-                            'No.',
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                          ),
-                          pw.Text(
-                            'Nama Produk',
-                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                          ),
-                          pw.Text(
-                            'Total Terjual (Qty)',
-                            textAlign: pw.TextAlign.right,
-                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                          ),
-                          pw.Text(
-                            'Total Pendapatan (Rp)',
-                            textAlign: pw.TextAlign.right,
-                            style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
               ],
             );
           },
@@ -1051,94 +1017,157 @@ class ReportExporter {
             return [
               pw.Table(
                 columnWidths: rekapWidths,
-                children: rekapRows.map((r) {
-                  return pw.TableRow(
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        bottom: pw.BorderSide(color: rowBorderColor, width: 0.4),
+                border: pw.TableBorder.all(color: rowBorderColor, width: 0.5),
+                children: [
+                  // 1. Header Baris
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: headerBgColor),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                        child: pw.Text(
+                          'No.',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
-                    ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                        child: pw.Text(
+                          'Nama Produk',
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                        child: pw.Text(
+                          'Total Terjual (Qty)',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                        child: pw.Text(
+                          'Total Pendapatan (Rp)',
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // 2. Baris-baris produk
+                  ...rekapRows.map((r) {
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                          child: pw.Text(r[0], textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 7)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                          child: pw.Text(r[1], style: const pw.TextStyle(fontSize: 7)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                          child: pw.Text(r[2], textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 7)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                          child: pw.Text(r[3], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
+                        ),
+                      ],
+                    );
+                  }),
+                  // 3. Baris Summary: TOTAL PENDAPATAN (SEBELUM PAJAK)
+                  pw.TableRow(
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                        child: pw.Text(r[0], textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 7)),
+                        child: pw.Text(''),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                        child: pw.Text(r[1], style: const pw.TextStyle(fontSize: 7)),
+                        child: pw.Text(
+                          'TOTAL PENDAPATAN (SEBELUM PAJAK)',
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                        child: pw.Text(r[2], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
+                        child: pw.Text(
+                          '$totalQty',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                        child: pw.Text(r[3], textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7)),
+                        child: pw.Text(
+                          'Rp${_formatNumber(totalPendapatanSebelumPajak)}',
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                     ],
-                  );
-                }).toList(),
-              ),
-              pw.SizedBox(height: 12),
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: rowBorderColor, width: 0.5),
-                ),
-                padding: const pw.EdgeInsets.all(6),
-                child: pw.Column(
-                  children: [
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'TOTAL PENDAPATAN (SEBELUM PAJAK)',
-                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                        ),
-                        pw.Row(
-                          children: [
-                            pw.Text(
-                              '$totalQty',
-                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.SizedBox(width: 80),
-                            pw.Text(
-                              'Rp${_formatNumber(totalPendapatanSebelumPajak)}',
-                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    pw.Divider(thickness: 0.4, color: rowBorderColor),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
+                  ),
+                  // 4. Baris Summary: TOTAL PAJAK 10%
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(
                           'TOTAL PAJAK 10%',
-                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                         ),
-                        pw.Text(
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(''),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(''),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(
                           'Rp${_formatNumber(totalPajak)}',
-                          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                         ),
-                      ],
-                    ),
-                    pw.Divider(thickness: 0.4, color: rowBorderColor),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
+                      ),
+                    ],
+                  ),
+                  // 5. Baris Summary: TOTAL SETELAH PAJAK
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(
                           'TOTAL SETELAH PAJAK',
-                          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                         ),
-                        pw.Text(
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(''),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(''),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
+                        child: pw.Text(
                           'Rp${_formatNumber(totalSetelahPajak)}',
-                          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ];
           },

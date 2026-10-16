@@ -73,8 +73,6 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
 
   if (menuPopuler.isEmpty) return records;
 
-  const paymentMethods = ['Tunai', 'QRIS', 'QRIS', 'E-Wallet', 'Kartu'];
-  const cashiers       = ['Kasir', 'Budi', 'Sari', 'Rini', 'Budi', 'Kasir'];
   const tableLabels    = [
     'Meja 01', 'Meja 02', 'Meja 03', 'Meja 04', 'Meja 05',
     'Meja 06', 'Meja 07', 'Meja 08', 'Meja 09', 'Meja 10',
@@ -239,6 +237,8 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
       final subtotal = items
           .fold<int>(0, (s, r) => s + r.unitPrice * r.quantity)
           .clamp(50000, 1200000);
+      final tax = (subtotal * 0.1).round();
+      final total = subtotal + tax;
 
       // Distribusi hari — lebih padat di pertengahan–akhir bulan
       final dayBias = rng(0, 9) < 7
@@ -250,11 +250,11 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
       records.add(SaleRecord(
         id: 'TRX-H${(trxCounter++).toString().padLeft(5, '0')}',
         orderLabel: tableLabels[rng(0, tableLabels.length - 1)],
-        paymentMethod: paymentMethods[rng(0, paymentMethods.length - 1)],
-        cashier: cashiers[rng(0, cashiers.length - 1)],
+        paymentMethod: 'Cash',
+        cashier: 'Kasir 1',
         subtotal: subtotal,
-        tax: 0,
-        total: subtotal,
+        tax: tax,
+        total: total,
         createdAt: DateTime(year, month, day, hour, minute),
         items: items,
       ));
@@ -267,12 +267,12 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
 
 List<SaleRecord> generateInitialTransactions() {
   final now = DateTime.now();
-  return [
+  final list = [
     SaleRecord(
       id: 'TRX-0048',
       orderLabel: 'Meja 06',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 35000,
       tax: 0,
       total: 35000,
@@ -288,8 +288,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0047',
       orderLabel: 'Meja 05',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 68000,
       tax: 0,
       total: 68000,
@@ -310,8 +310,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0046',
       orderLabel: 'Take Away #01',
-      paymentMethod: 'E-Wallet',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 15000,
       tax: 0,
       total: 15000,
@@ -327,8 +327,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0045',
       orderLabel: 'Meja 03',
-      paymentMethod: 'QRIS',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 47000,
       tax: 0,
       total: 47000,
@@ -349,8 +349,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0044',
       orderLabel: 'Meja 02',
-      paymentMethod: 'Kartu',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 43000,
       tax: 0,
       total: 43000,
@@ -371,8 +371,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0043',
       orderLabel: 'Meja 01',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 66000,
       tax: 0,
       total: 66000,
@@ -393,8 +393,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0042',
       orderLabel: 'Meja 12',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 57000,
       tax: 0,
       total: 57000,
@@ -415,8 +415,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0041',
       orderLabel: 'Meja 11',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 42000,
       tax: 0,
       total: 42000,
@@ -437,8 +437,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0040',
       orderLabel: 'Meja 10',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 42000,
       tax: 0,
       total: 42000,
@@ -459,8 +459,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0039',
       orderLabel: 'Take Away #03',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 42000,
       tax: 0,
       total: 42000,
@@ -476,8 +476,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0038',
       orderLabel: 'Meja 09',
-      paymentMethod: 'E-Wallet',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 74000,
       tax: 0,
       total: 74000,
@@ -498,8 +498,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0037',
       orderLabel: 'Meja 08',
-      paymentMethod: 'QRIS',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 51000,
       tax: 0,
       total: 51000,
@@ -520,8 +520,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0036',
       orderLabel: 'Meja 07',
-      paymentMethod: 'Kartu',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 43000,
       tax: 0,
       total: 43000,
@@ -542,8 +542,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0035',
       orderLabel: 'Take Away #02',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 66000,
       tax: 0,
       total: 66000,
@@ -564,8 +564,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0034',
       orderLabel: 'Meja 06',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 64000,
       tax: 0,
       total: 64000,
@@ -586,8 +586,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0033',
       orderLabel: 'Meja 05',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 80000,
       tax: 0,
       total: 80000,
@@ -608,8 +608,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0032',
       orderLabel: 'Take Away #01',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 45000,
       tax: 0,
       total: 45000,
@@ -630,8 +630,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0031',
       orderLabel: 'Meja 03',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 80000,
       tax: 0,
       total: 80000,
@@ -652,8 +652,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0030',
       orderLabel: 'Meja 02',
-      paymentMethod: 'E-Wallet',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 47000,
       tax: 0,
       total: 47000,
@@ -674,8 +674,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0029',
       orderLabel: 'Meja 01',
-      paymentMethod: 'QRIS',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 45000,
       tax: 0,
       total: 45000,
@@ -696,8 +696,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0028',
       orderLabel: 'Meja 12',
-      paymentMethod: 'Kartu',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 50000,
       tax: 0,
       total: 50000,
@@ -718,8 +718,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0027',
       orderLabel: 'Meja 11',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 45000,
       tax: 0,
       total: 45000,
@@ -740,8 +740,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0026',
       orderLabel: 'Meja 10',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 28000,
       tax: 0,
       total: 28000,
@@ -757,8 +757,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0025',
       orderLabel: 'Take Away #03',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 28000,
       tax: 0,
       total: 28000,
@@ -774,8 +774,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0024',
       orderLabel: 'Meja 09',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 77000,
       tax: 0,
       total: 77000,
@@ -796,8 +796,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0023',
       orderLabel: 'Meja 08',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 74000,
       tax: 0,
       total: 74000,
@@ -818,8 +818,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0022',
       orderLabel: 'Meja 07',
-      paymentMethod: 'E-Wallet',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 28000,
       tax: 0,
       total: 28000,
@@ -835,8 +835,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0021',
       orderLabel: 'Take Away #02',
-      paymentMethod: 'QRIS',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 80000,
       tax: 0,
       total: 80000,
@@ -857,8 +857,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0020',
       orderLabel: 'Meja 06',
-      paymentMethod: 'Kartu',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 66000,
       tax: 0,
       total: 66000,
@@ -879,8 +879,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0019',
       orderLabel: 'Meja 05',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 36000,
       tax: 0,
       total: 36000,
@@ -896,8 +896,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0018',
       orderLabel: 'Take Away #01',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 80000,
       tax: 0,
       total: 80000,
@@ -918,8 +918,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0017',
       orderLabel: 'Meja 03',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 15000,
       tax: 0,
       total: 15000,
@@ -935,8 +935,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0016',
       orderLabel: 'Meja 02',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 50000,
       tax: 0,
       total: 50000,
@@ -957,8 +957,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0015',
       orderLabel: 'Meja 01',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 15000,
       tax: 0,
       total: 15000,
@@ -974,8 +974,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0014',
       orderLabel: 'Meja 12',
-      paymentMethod: 'E-Wallet',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 43000,
       tax: 0,
       total: 43000,
@@ -996,8 +996,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0013',
       orderLabel: 'Meja 11',
-      paymentMethod: 'QRIS',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 32000,
       tax: 0,
       total: 32000,
@@ -1013,8 +1013,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0012',
       orderLabel: 'Meja 10',
-      paymentMethod: 'Kartu',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 68000,
       tax: 0,
       total: 68000,
@@ -1035,8 +1035,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0011',
       orderLabel: 'Take Away #03',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 68000,
       tax: 0,
       total: 68000,
@@ -1057,8 +1057,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0010',
       orderLabel: 'Meja 09',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 71000,
       tax: 0,
       total: 71000,
@@ -1079,8 +1079,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0009',
       orderLabel: 'Meja 08',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 43000,
       tax: 0,
       total: 43000,
@@ -1101,8 +1101,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0008',
       orderLabel: 'Meja 01',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 45000,
       tax: 0,
       total: 45000,
@@ -1118,8 +1118,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0007',
       orderLabel: 'Meja 02',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 42000,
       tax: 0,
       total: 42000,
@@ -1135,8 +1135,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0006',
       orderLabel: 'Meja 03',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 36000,
       tax: 0,
       total: 36000,
@@ -1152,8 +1152,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0005',
       orderLabel: 'Meja 07',
-      paymentMethod: 'QRIS',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 50000,
       tax: 0,
       total: 50000,
@@ -1174,8 +1174,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0004',
       orderLabel: 'Take Away #02',
-      paymentMethod: 'Tunai',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 45000,
       tax: 0,
       total: 45000,
@@ -1196,8 +1196,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0003',
       orderLabel: 'Meja 06',
-      paymentMethod: 'E-Wallet',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 45000,
       tax: 0,
       total: 45000,
@@ -1213,8 +1213,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0002',
       orderLabel: 'Meja 05',
-      paymentMethod: 'QRIS',
-      cashier: 'Kasir',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 70000,
       tax: 0,
       total: 70000,
@@ -1235,8 +1235,8 @@ List<SaleRecord> generateInitialTransactions() {
     SaleRecord(
       id: 'TRX-0001',
       orderLabel: 'Take Away #01',
-      paymentMethod: 'Kartu',
-      cashier: 'Budi',
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
       subtotal: 68000,
       tax: 0,
       total: 68000,
@@ -1255,6 +1255,16 @@ List<SaleRecord> generateInitialTransactions() {
       ],
     ),
   ];
+
+  return list.map((t) {
+    final tax = (t.subtotal * 0.1).round();
+    return t.copyWith(
+      tax: tax,
+      total: t.subtotal + tax,
+      paymentMethod: 'Cash',
+      cashier: 'Kasir 1',
+    );
+  }).toList();
 }
 
 Map<String, PendingOrder> generateInitialPendingOrders(List<MenuItem> menu) {

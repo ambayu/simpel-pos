@@ -148,6 +148,8 @@ class SaleRecord {
     String? cashier,
     DateTime? createdAt,
     String? orderLabel,
+    int? tax,
+    int? total,
   }) {
     return SaleRecord(
       id: id,
@@ -155,8 +157,8 @@ class SaleRecord {
       items: items,
       subtotal: subtotal,
       discount: discount,
-      tax: tax,
-      total: total,
+      tax: tax ?? this.tax,
+      total: total ?? (tax != null ? (subtotal - discount + tax) : this.total),
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paidAmount: paidAmount,
       cashier: cashier ?? this.cashier,
