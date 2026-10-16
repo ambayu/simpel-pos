@@ -1450,12 +1450,16 @@ class _ReportPageState extends State<ReportPage>
                     _DataLine(
                       label: 'Pembayaran tunai',
                       value: '${filteredList.where((item) => item.paymentMethod == 'Tunai').length} transaksi',
-                      detail: rupiah(filteredList.where((item) => item.paymentMethod == 'Tunai').fold(0, (s, t) => s + t.total)),
+                      detail: filteredList.any((item) => item.paymentMethod == 'Tunai')
+                          ? rupiah(filteredList.where((item) => item.paymentMethod == 'Tunai').fold(0, (s, t) => s + t.total))
+                          : null,
                     ),
                     _DataLine(
                       label: 'Pembayaran non-tunai',
                       value: '${filteredList.where((item) => item.paymentMethod != 'Tunai').length} transaksi',
-                      detail: rupiah(filteredList.where((item) => item.paymentMethod != 'Tunai').fold(0, (s, t) => s + t.total)),
+                      detail: filteredList.any((item) => item.paymentMethod != 'Tunai')
+                          ? rupiah(filteredList.where((item) => item.paymentMethod != 'Tunai').fold(0, (s, t) => s + t.total))
+                          : null,
                     ),
                   ],
                 ),

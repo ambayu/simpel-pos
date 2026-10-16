@@ -530,6 +530,7 @@ class ReportExporter {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
+        maxPages: 1000,
         margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         header: (context) {
           return pw.Container(
@@ -590,7 +591,6 @@ class ReportExporter {
     );
 
     // Hitung judul bulan & tahun untuk rekap produk
-    final refDate = startDate ?? (sortedTransactions.isNotEmpty ? sortedTransactions.first.createdAt : DateTime.now());
     const monthNames = [
       'JANUARI',
       'FEBRUARI',
@@ -605,7 +605,17 @@ class ReportExporter {
       'NOVEMBER',
       'DESEMBER',
     ];
-    final periodTitle = 'BULAN ${monthNames[refDate.month - 1]} ${refDate.year}';
+    final String periodTitle;
+    if (startDate != null && endDate != null) {
+      if (startDate.year == endDate.year && startDate.month == endDate.month) {
+        periodTitle = 'BULAN ${monthNames[startDate.month - 1]} ${startDate.year}';
+      } else {
+        periodTitle = 'PERIODE ${monthNames[startDate.month - 1]} ${startDate.year} - ${monthNames[endDate.month - 1]} ${endDate.year}';
+      }
+    } else {
+      final refDate = startDate ?? (sortedTransactions.isNotEmpty ? sortedTransactions.first.createdAt : DateTime.now());
+      periodTitle = 'BULAN ${monthNames[refDate.month - 1]} ${refDate.year}';
+    }
 
     final sortedProductList = productSummary.entries.toList()
       ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
@@ -634,6 +644,7 @@ class ReportExporter {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
+        maxPages: 1000,
         margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         header: (context) {
           if (context.pageNumber == context.pagesCount) {

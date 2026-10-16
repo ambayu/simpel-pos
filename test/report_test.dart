@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:simpel_pos/src/models.dart';
+import 'package:simpel_pos/src/pos_store.dart';
 import 'package:simpel_pos/src/services/report_exporter.dart';
 
 void main() {
@@ -88,4 +89,11 @@ void main() {
       expect(record.total, 69300);
     },
   );
+
+  test('generateReportPdfBytes dengan 700+ transaksi data seed', () async {
+    final store = PosStore(seedDemoData: true);
+    expect(store.transactions.length, greaterThan(500));
+    final bytes = await ReportExporter.generateReportPdfBytes(store.transactions);
+    expect(bytes, isNotEmpty);
+  });
 }

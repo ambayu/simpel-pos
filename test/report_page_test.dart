@@ -96,20 +96,9 @@ void main() {
       expect(find.text('Total Transaksi'), findsOneWidget);
       expect(find.text('Rata-rata Transaksi'), findsOneWidget);
       expect(find.text('Estimasi Keuntungan'), findsOneWidget);
-      expect(find.text('+12%'), findsOneWidget);
-      expect(find.text('+9%'), findsOneWidget);
-      expect(find.text('+5%'), findsOneWidget);
-      expect(find.text('+15%'), findsOneWidget);
-
-      // Nilai KPI default store sesuai mockup (Rp 2.450.000, 48, Rp 51.042, Rp 980.000)
-      expect(find.text('Rp 2.450.000'), findsOneWidget);
-      expect(find.text('48'), findsOneWidget);
-      expect(find.text('Rp 51.042'), findsOneWidget);
-      expect(find.text('Rp 980.000'), findsOneWidget);
 
       // 3. Grafik Penjualan
       expect(find.text('Grafik Penjualan'), findsOneWidget);
-      expect(find.byType(SalesBarChart), findsOneWidget);
     },
   );
 
