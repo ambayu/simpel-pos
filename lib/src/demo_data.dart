@@ -32,7 +32,6 @@ bool _isHariBesar(int year, int month) {
 
 // ---------------------------------------------------------------------------
 // Kategori minuman — dipakai untuk mendeteksi apakah item adalah minuman
-// sehingga kombinasi makanan + minuman per transaksi terasa natural
 // ---------------------------------------------------------------------------
 const _kategorMinuman = {
   'MINUMAN - HOME MADE',
@@ -42,22 +41,37 @@ const _kategorMinuman = {
   'MINUMAN - BEER',
 };
 
+// Kategori yang jarang dipesan (premium/niche) — bobot lebih rendah
+const _kategorRarang = {
+  'HAISOM',       // mahal, dipesan grup khusus
+  'BEST SELLER',  // duplikat, skip di historis
+  'VEGETARIAN',   // niche market
+};
+
 // ---------------------------------------------------------------------------
 // Seed transactions historis Jan 2025 – Sep 2026
 //   normal    : Rp 5.000.000 – 6.000.000 / bulan
 //   hari besar: Rp 7.000.000 – 8.000.000 / bulan
 // Menggunakan menu ASLI dari pos_store yang dioper sebagai parameter.
+// Logika pemilihan menu mempertimbangkan: jam, kategori, popularitas.
 // ---------------------------------------------------------------------------
 List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
   final records = <SaleRecord>[];
   int trxCounter = 1000;
 
-  // Pisahkan menu menjadi makanan dan minuman berdasarkan kategori asli
-  final menuMakanan = menu.where((m) => !_kategorMinuman.contains(m.category)).toList();
-  final menuMinuman = menu.where((m) => _kategorMinuman.contains(m.category)).toList();
+  // Pisahkan pool menu berdasarkan kategori
+  // "BEST SELLER" di-skip karena duplikat dari HOTPOT/OTHER
+  final menuAll     = menu.where((m) => m.category != 'BEST SELLER').toList();
+  final menuMakanan = menuAll.where((m) => !_kategorMinuman.contains(m.category)).toList();
+  final menuMinuman = menuAll.where((m) => _kategorMinuman.contains(m.category)).toList();
+  final menuBeer    = menuAll.where((m) => m.category == 'MINUMAN - BEER').toList();
+  final menuNonBeer = menuMinuman.where((m) => m.category != 'MINUMAN - BEER').toList();
 
-  // Fallback kalau menu kosong
-  if (menuMakanan.isEmpty) return records;
+  // Pool makanan utama (populer, sering dipesan) — exclude yang sangat niche
+  final menuPopuler = menuMakanan.where((m) => !_kategorRarang.contains(m.category)).toList();
+  final menuHaisom  = menuMakanan.where((m) => m.category == 'HAISOM').toList();
+
+  if (menuPopuler.isEmpty) return records;
 
   const paymentMethods = ['Tunai', 'QRIS', 'QRIS', 'E-Wallet', 'Kartu'];
   const cashiers       = ['Kasir', 'Budi', 'Sari', 'Rini', 'Budi', 'Kasir'];
@@ -91,67 +105,97 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
     return min + (seed % (max - min + 1));
   }
 
-  // Hitung harga item dari menu asli (pakai harga base + variant pertama jika ada)
+  // Harga item: base + variant acak (lebih natural)
   int priceOf(MenuItem m) {
     if (m.variants.isEmpty) return m.price;
-    // Pilih variant secara acak (lebih natural)
     final v = m.variants[rng(0, m.variants.length - 1)];
     return m.price + v.extraPrice;
   }
 
-  // Bangun satu transaksi realistis dari menu asli
-  List<SaleItemRecord> buildItems() {
-    final itemCount = rng(0, 9) < 6 ? rng(2, 3) : rng(1, 4); // 60% → 2–3 item
-    final picked    = <String>{};
-    final result    = <SaleItemRecord>[];
+  // Tambah satu item ke result
+  void addItem(List<SaleItemRecord> result, Set<String> picked,
+      MenuItem m, int qty) {
+    if (picked.contains(m.id)) return;
+    picked.add(m.id);
+    result.add(SaleItemRecord(
+      productName: m.name,
+      quantity: qty,
+      unitPrice: priceOf(m),
+    ));
+  }
 
-    // Minimal 1 item makanan
-    for (var attempt = 0; attempt < 20 && result.isEmpty; attempt++) {
-      final m = menuMakanan[rng(0, menuMakanan.length - 1)];
-      if (!picked.contains(m.id)) {
-        picked.add(m.id);
-        final qty = rng(0, 5) < 4 ? 1 : rng(2, 3);
-        result.add(SaleItemRecord(
-          productName: m.name,
-          quantity: qty,
-          unitPrice: priceOf(m),
-        ));
-      }
+  // Pilih menu dari pool, hindari duplikat
+  MenuItem? pick(List<MenuItem> pool, Set<String> picked) {
+    for (var attempt = 0; attempt < 20; attempt++) {
+      final m = pool[rng(0, pool.length - 1)];
+      if (!picked.contains(m.id)) return m;
+    }
+    return null;
+  }
+
+  // Bangun satu transaksi realistis berdasarkan jam
+  List<SaleItemRecord> buildItems(int hour) {
+    final result = <SaleItemRecord>[];
+    final picked = <String>{};
+
+    // Jumlah item per transaksi: kebanyakan 2–3, sesekali 1 atau 4
+    final itemCount = rng(0, 9) < 6 ? rng(2, 3) : rng(1, 4);
+
+    // ── Makanan utama (selalu ada) ──────────────────────────────────────
+    // Malam (18–22): ada peluang memesan Haisom (meja grup)
+    final isGrupMalam = hour >= 18 && rng(0, 9) == 0; // 10% chance malam
+    if (isGrupMalam && menuHaisom.isNotEmpty) {
+      final m = pick(menuHaisom, picked);
+      if (m != null) addItem(result, picked, m, 1);
     }
 
-    // Tambah item makanan/minuman berikutnya
+    // Item makanan utama
     for (var i = result.length; i < itemCount; i++) {
-      final isMinum = menuMinuman.isNotEmpty && rng(0, 2) == 0;
-      final pool    = isMinum ? menuMinuman : menuMakanan;
-      for (var attempt = 0; attempt < 15; attempt++) {
-        final m = pool[rng(0, pool.length - 1)];
-        if (!picked.contains(m.id)) {
-          picked.add(m.id);
-          final qty = isMinum ? rng(1, 3) : (rng(0, 4) < 4 ? 1 : 2);
-          result.add(SaleItemRecord(
-            productName: m.name,
-            quantity: qty,
-            unitPrice: priceOf(m),
-          ));
-          break;
+      // 15% chance pilih dari menu niche (vegetarian / haisom)
+      final useNiche = rng(0, 6) == 0 && menuMakanan.length > menuPopuler.length;
+      final pool     = useNiche ? menuMakanan : menuPopuler;
+      final m        = pick(pool, picked);
+      if (m != null) {
+        final qty = rng(0, 4) < 4 ? 1 : rng(2, 3); // 80% qty=1
+        addItem(result, picked, m, qty);
+      }
+    }
+
+    // ── Minuman ─────────────────────────────────────────────────────────
+    // Siang (11–16): lebih ke teh/juice/air
+    // Malam (17–22): teh/juice + peluang beer lebih tinggi
+    final hasMinum = result.any((r) =>
+        menuMinuman.any((m) => m.name == r.productName));
+
+    if (!hasMinum && menuMinuman.isNotEmpty) {
+      // 85% chance ada minuman
+      if (rng(0, 9) < 9) {
+        // Beer: 5% siang, 25% malam
+        final isBeer     = menuBeer.isNotEmpty && rng(0, 19) < (hour >= 18 ? 5 : 1);
+        final drinkPool  = isBeer ? menuBeer : menuNonBeer;
+        final pool       = drinkPool.isNotEmpty ? drinkPool : menuMinuman;
+        final m          = pick(pool, picked);
+        if (m != null) {
+          // Beer biasanya 1–2 botol, minuman lain 1–3
+          final qty = isBeer ? rng(1, 2) : rng(1, 3);
+          addItem(result, picked, m, qty);
+        }
+        // Malam: 30% tambah minuman kedua (misal teh + bir)
+        if (hour >= 18 && rng(0, 9) < 3 && menuNonBeer.isNotEmpty) {
+          final m2 = pick(menuNonBeer, picked);
+          if (m2 != null) addItem(result, picked, m2, rng(1, 2));
         }
       }
     }
 
-    // Hampir selalu tambah minuman kalau belum ada
-    if (menuMinuman.isNotEmpty) {
-      final hasMinum = result.any((r) =>
-          menuMinuman.any((m) => m.name == r.productName));
-      if (!hasMinum && rng(0, 3) > 0) {
-        final m = menuMinuman[rng(0, menuMinuman.length - 1)];
-        if (!picked.contains(m.id)) {
-          result.add(SaleItemRecord(
-            productName: m.name,
-            quantity: rng(1, 3),
-            unitPrice: priceOf(m),
-          ));
-        }
-      }
+    // Fallback: pastikan ada minimal 1 item
+    if (result.isEmpty && menuPopuler.isNotEmpty) {
+      final m = menuPopuler[rng(0, menuPopuler.length - 1)];
+      result.add(SaleItemRecord(
+        productName: m.name,
+        quantity: 1,
+        unitPrice: priceOf(m),
+      ));
     }
 
     return result;
@@ -189,7 +233,9 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
         remaining -= trxTarget;
       }
 
-      final items    = buildItems();
+      // Tentukan jam lebih dulu agar buildItems bisa pakai konteks waktu
+      final hour   = hourPool[rng(0, hourPool.length - 1)];
+      final items  = buildItems(hour);
       final subtotal = items
           .fold<int>(0, (s, r) => s + r.unitPrice * r.quantity)
           .clamp(50000, 1200000);
@@ -199,7 +245,6 @@ List<SaleRecord> generateHistoricalTransactions(List<MenuItem> menu) {
           ? rng(5, daysInMonth)
           : rng(1, 10);
       final day    = dayBias.clamp(1, daysInMonth);
-      final hour   = hourPool[rng(0, hourPool.length - 1)];
       final minute = rng(0, 59);
 
       records.add(SaleRecord(
