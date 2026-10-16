@@ -151,7 +151,7 @@ class ReportExporter {
     return file.path;
   }
 
-  /// Ekspor Rekap Ringkasan Transaksi Penjualan
+  /// Ekspor Rekap Penjualan Produk per Menu per Bulan (Sesuai Format Buku Laporan)
   static Future<String> exportSummary(
     List<SaleRecord> transactions, {
     DateTime? startDate,
@@ -160,66 +160,120 @@ class ReportExporter {
     String? suffix,
   }) async {
     final workbook = Excel.createExcel();
-    final sheet = workbook['Rekap Transaksi'];
+    final sheet = workbook['Rekap Penjualan'];
 
-    sheet.appendRow([
-      TextCellValue('No.'),
-      TextCellValue('Kode Struk'),
-      TextCellValue('Tanggal & Waktu'),
-      TextCellValue('Pesanan / Meja'),
-      TextCellValue('Kasir'),
-      TextCellValue('Metode Bayar'),
-      TextCellValue('Jumlah Item'),
-      TextCellValue('Subtotal (Rp)'),
-      TextCellValue('Diskon (Rp)'),
-      TextCellValue('Pajak (Rp)'),
-      TextCellValue('Total (Rp)'),
-    ]);
+    const monthNames = [
+      'JANUARI',
+      'FEBRUARI',
+      'MARET',
+      'APRIL',
+      'MEI',
+      'JUNI',
+      'JULI',
+      'AGUSTUS',
+      'SEPTEMBER',
+      'OKTOBER',
+      'NOVEMBER',
+      'DESEMBER',
+    ];
 
-    var totalItemCount = 0;
-    var grandSubtotal = 0;
-    var grandDiscount = 0;
-    var grandTax = 0;
-    var grandTotal = 0;
+    // Urutkan transaksi secara kronologis
+    final sortedTransactions = List<SaleRecord>.from(transactions)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-    for (var i = 0; i < transactions.length; i++) {
-      final t = transactions[i];
-      totalItemCount += t.itemCount;
-      grandSubtotal += t.subtotal;
-      grandDiscount += t.discount;
-      grandTax += t.tax;
-      grandTotal += t.total;
+    // Kelompokkan transaksi per (Tahun, Bulan)
+    final monthlyGroups = <int, List<SaleRecord>>{};
+    for (final t in sortedTransactions) {
+      final key = t.createdAt.year * 100 + t.createdAt.month;
+      monthlyGroups.putIfAbsent(key, () => []).add(t);
+    }
 
+    var grandTotalQty = 0;
+    var grandTotalPendapatan = 0;
+    var isFirstMonth = true;
+
+    for (final entry in monthlyGroups.entries) {
+      final year = entry.key ~/ 100;
+      final month = entry.key % 100;
+      final monthName = monthNames[month - 1];
+      final monthTransactions = entry.value;
+
+      // Beri spasi jika bukan bulan pertama
+      if (!isFirstMonth) {
+        sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+        sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+      }
+      isFirstMonth = false;
+
+      // 1. Header Judul Laporan (Sesuai Gambar)
+      sheet.appendRow([TextCellValue('LAPORAN THE LEGEND HOT POT'), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+      sheet.appendRow([TextCellValue('BULAN $monthName $year'), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+      sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+      sheet.appendRow([TextCellValue('REKAP PENJUALAN PRODUK'), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+
+      // 2. Header Kolom (Persis seperti gambar)
       sheet.appendRow([
-        IntCellValue(i + 1),
-        TextCellValue(t.id),
-        TextCellValue(_formatDateTime(t.createdAt)),
-        TextCellValue(t.orderLabel),
-        TextCellValue(t.cashier),
-        TextCellValue(t.paymentMethod),
-        IntCellValue(t.itemCount),
-        IntCellValue(t.subtotal),
-        IntCellValue(t.discount),
-        IntCellValue(t.tax),
-        IntCellValue(t.total),
+        TextCellValue('No.'),
+        TextCellValue('Nama Produk'),
+        TextCellValue('Total Terjual (Qty)'),
+        TextCellValue('Total Pendapatan (Rp)'),
+      ]);
+
+      // 3. Agregasi Produk di Bulan Ini
+      final productMap = <String, ({int qty, int revenue})>{};
+      for (final t in monthTransactions) {
+        for (final item in t.items) {
+          final existing = productMap[item.productName] ?? (qty: 0, revenue: 0);
+          productMap[item.productName] = (
+            qty: existing.qty + item.quantity,
+            revenue: existing.revenue + item.total,
+          );
+        }
+      }
+
+      final sortedProducts = productMap.entries.toList()
+        ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
+
+      var monthQty = 0;
+      var monthRevenue = 0;
+
+      for (var idx = 0; idx < sortedProducts.length; idx++) {
+        final p = sortedProducts[idx];
+        monthQty += p.value.qty;
+        monthRevenue += p.value.revenue;
+
+        sheet.appendRow([
+          IntCellValue(idx + 1),
+          TextCellValue(p.key),
+          IntCellValue(p.value.qty),
+          IntCellValue(p.value.revenue),
+        ]);
+      }
+
+      grandTotalQty += monthQty;
+      grandTotalPendapatan += monthRevenue;
+
+      // 4. Baris Subtotal per Bulan
+      sheet.appendRow([
+        TextCellValue(''),
+        TextCellValue('TOTAL BULAN $monthName $year'),
+        IntCellValue(monthQty),
+        IntCellValue(monthRevenue),
       ]);
     }
 
-    sheet.appendRow([
-      TextCellValue(''),
-      TextCellValue('TOTAL'),
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue(''),
-      IntCellValue(totalItemCount),
-      IntCellValue(grandSubtotal),
-      IntCellValue(grandDiscount),
-      IntCellValue(grandTax),
-      IntCellValue(grandTotal),
-    ]);
+    // 5. Grand Total Keseluruhan (jika lebih dari 1 bulan atau ada transaksi)
+    if (monthlyGroups.length > 1) {
+      sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+      sheet.appendRow([
+        TextCellValue(''),
+        TextCellValue('GRAND TOTAL KESELURUHAN'),
+        IntCellValue(grandTotalQty),
+        IntCellValue(grandTotalPendapatan),
+      ]);
+    }
 
-    // Sheet 2: Rekap Metode Pembayaran
+    // Sheet 2: Rekap Metode Pembayaran (Tetap dipertahankan untuk audit kasir)
     final methodSheet = workbook['Rekap Metode Pembayaran'];
     methodSheet.appendRow([
       TextCellValue('Metode Bayar'),
@@ -236,11 +290,11 @@ class ReportExporter {
       );
     }
 
-    for (final entry in methodMap.entries) {
+    for (final mEntry in methodMap.entries) {
       methodSheet.appendRow([
-        TextCellValue(entry.key),
-        IntCellValue(entry.value.count),
-        IntCellValue(entry.value.amount),
+        TextCellValue(mEntry.key),
+        IntCellValue(mEntry.value.count),
+        IntCellValue(mEntry.value.amount),
       ]);
     }
 
@@ -260,7 +314,7 @@ class ReportExporter {
     );
   }
 
-  /// Ekspor Detail Rincian Item Penjualan
+  /// Ekspor Detail Rincian Item Penjualan per Bulan
   static Future<String> exportDetail(
     List<SaleRecord> transactions, {
     DateTime? startDate,
@@ -271,85 +325,165 @@ class ReportExporter {
     final workbook = Excel.createExcel();
     final sheet = workbook['Detail Penjualan Item'];
 
-    sheet.appendRow([
-      TextCellValue('No.'),
-      TextCellValue('Kode Struk'),
-      TextCellValue('Tanggal & Waktu'),
-      TextCellValue('Pesanan / Meja'),
-      TextCellValue('Kasir'),
-      TextCellValue('Metode Bayar'),
-      TextCellValue('Nama Produk'),
-      TextCellValue('Qty'),
-      TextCellValue('Harga Satuan (Rp)'),
-      TextCellValue('Total Item (Rp)'),
-      TextCellValue('Diskon (Rp)'),
-      TextCellValue('Pajak (Rp)'),
-      TextCellValue('Total (Rp)'),
-    ]);
+    const monthNames = [
+      'JANUARI',
+      'FEBRUARI',
+      'MARET',
+      'APRIL',
+      'MEI',
+      'JUNI',
+      'JULI',
+      'AGUSTUS',
+      'SEPTEMBER',
+      'OKTOBER',
+      'NOVEMBER',
+      'DESEMBER',
+    ];
 
-    var rowNumber = 1;
-    var totalQuantity = 0;
-    var totalItemValue = 0;
-    var totalDiscount = 0;
-    var totalTax = 0;
+    // Urutkan transaksi secara kronologis
+    final sortedTransactions = List<SaleRecord>.from(transactions)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // Kelompokkan transaksi per (Tahun, Bulan)
+    final monthlyGroups = <int, List<SaleRecord>>{};
+    for (final t in sortedTransactions) {
+      final key = t.createdAt.year * 100 + t.createdAt.month;
+      monthlyGroups.putIfAbsent(key, () => []).add(t);
+    }
+
+    var grandQuantity = 0;
+    var grandItemValue = 0;
+    var grandDiscount = 0;
+    var grandTax = 0;
     var grandTotal = 0;
+    var isFirstMonth = true;
+
+    for (final entry in monthlyGroups.entries) {
+      final year = entry.key ~/ 100;
+      final month = entry.key % 100;
+      final monthName = monthNames[month - 1];
+      final monthTransactions = entry.value;
+
+      if (!isFirstMonth) {
+        sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+        sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+      }
+      isFirstMonth = false;
+
+      // Header Judul Laporan per Bulan
+      sheet.appendRow([TextCellValue('LAPORAN THE LEGEND HOT POT')]);
+      sheet.appendRow([TextCellValue('BULAN $monthName $year')]);
+      sheet.appendRow([TextCellValue('')]);
+      sheet.appendRow([TextCellValue('DETAIL PENJUALAN ITEM')]);
+
+      sheet.appendRow([
+        TextCellValue('No.'),
+        TextCellValue('Kode Struk'),
+        TextCellValue('Tanggal & Waktu'),
+        TextCellValue('Pesanan / Meja'),
+        TextCellValue('Kasir'),
+        TextCellValue('Metode Bayar'),
+        TextCellValue('Nama Produk'),
+        TextCellValue('Qty'),
+        TextCellValue('Harga Satuan (Rp)'),
+        TextCellValue('Total Item (Rp)'),
+        TextCellValue('Diskon (Rp)'),
+        TextCellValue('Pajak (Rp)'),
+        TextCellValue('Total (Rp)'),
+      ]);
+
+      var rowNumber = 1;
+      var monthQuantity = 0;
+      var monthItemValue = 0;
+      var monthDiscount = 0;
+      var monthTax = 0;
+      var monthTotal = 0;
+
+      for (final t in monthTransactions) {
+        final itemCount = t.items.isEmpty ? 1 : t.items.length;
+        final allocatedTax = (t.tax / itemCount).round();
+        final allocatedDiscount = (t.discount / itemCount).round();
+
+        for (final item in t.items) {
+          monthQuantity += item.quantity;
+          monthItemValue += item.total;
+          monthDiscount += allocatedDiscount;
+          monthTax += allocatedTax;
+          final lineTotal = item.total - allocatedDiscount + allocatedTax;
+          monthTotal += lineTotal;
+
+          sheet.appendRow([
+            IntCellValue(rowNumber++),
+            TextCellValue(t.id),
+            TextCellValue(_formatDateTime(t.createdAt)),
+            TextCellValue(t.orderLabel),
+            TextCellValue(t.cashier),
+            TextCellValue(t.paymentMethod),
+            TextCellValue(item.productName),
+            IntCellValue(item.quantity),
+            IntCellValue(item.unitPrice),
+            IntCellValue(item.total),
+            IntCellValue(allocatedDiscount),
+            IntCellValue(allocatedTax),
+            IntCellValue(lineTotal),
+          ]);
+        }
+      }
+
+      grandQuantity += monthQuantity;
+      grandItemValue += monthItemValue;
+      grandDiscount += monthDiscount;
+      grandTax += monthTax;
+      grandTotal += monthTotal;
+
+      sheet.appendRow([
+        TextCellValue(''),
+        TextCellValue('SUBTOTAL BULAN $monthName $year'),
+        TextCellValue(''),
+        TextCellValue(''),
+        TextCellValue(''),
+        TextCellValue(''),
+        TextCellValue(''),
+        IntCellValue(monthQuantity),
+        TextCellValue(''),
+        IntCellValue(monthItemValue),
+        IntCellValue(monthDiscount),
+        IntCellValue(monthTax),
+        IntCellValue(monthTotal),
+      ]);
+    }
+
+    if (monthlyGroups.length > 1) {
+      sheet.appendRow([TextCellValue(''), TextCellValue(''), TextCellValue('')]);
+      sheet.appendRow([
+        TextCellValue(''),
+        TextCellValue('GRAND TOTAL KESELURUHAN'),
+        TextCellValue(''),
+        TextCellValue(''),
+        TextCellValue(''),
+        TextCellValue(''),
+        TextCellValue(''),
+        IntCellValue(grandQuantity),
+        TextCellValue(''),
+        IntCellValue(grandItemValue),
+        IntCellValue(grandDiscount),
+        IntCellValue(grandTax),
+        IntCellValue(grandTotal),
+      ]);
+    }
+
+    final productSheet = workbook['Rekap Penjualan Produk'];
     final productSummary = <String, ({int qty, int revenue})>{};
-
     for (final t in transactions) {
-      final itemCount = t.items.isEmpty ? 1 : t.items.length;
-      final allocatedTax = (t.tax / itemCount).round();
-      final allocatedDiscount = (t.discount / itemCount).round();
-
       for (final item in t.items) {
-        totalQuantity += item.quantity;
-        totalItemValue += item.total;
-        totalDiscount += allocatedDiscount;
-        totalTax += allocatedTax;
-        final lineTotal = item.total - allocatedDiscount + allocatedTax;
-        grandTotal += lineTotal;
-
-        final existing =
-            productSummary[item.productName] ?? (qty: 0, revenue: 0);
+        final existing = productSummary[item.productName] ?? (qty: 0, revenue: 0);
         productSummary[item.productName] = (
           qty: existing.qty + item.quantity,
           revenue: existing.revenue + item.total,
         );
-
-        sheet.appendRow([
-          IntCellValue(rowNumber++),
-          TextCellValue(t.id),
-          TextCellValue(_formatDateTime(t.createdAt)),
-          TextCellValue(t.orderLabel),
-          TextCellValue(t.cashier),
-          TextCellValue(t.paymentMethod),
-          TextCellValue(item.productName),
-          IntCellValue(item.quantity),
-          IntCellValue(item.unitPrice),
-          IntCellValue(item.total),
-          IntCellValue(allocatedDiscount),
-          IntCellValue(allocatedTax),
-          IntCellValue(lineTotal),
-        ]);
       }
     }
 
-    sheet.appendRow([
-      TextCellValue(''),
-      TextCellValue('TOTAL'),
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue(''),
-      IntCellValue(totalQuantity),
-      TextCellValue(''),
-      IntCellValue(totalItemValue),
-      IntCellValue(totalDiscount),
-      IntCellValue(totalTax),
-      IntCellValue(grandTotal),
-    ]);
-
-    final productSheet = workbook['Rekap Penjualan Produk'];
     productSheet.appendRow([
       TextCellValue('Nama Produk'),
       TextCellValue('Total Terjual (Qty)'),
@@ -452,6 +586,33 @@ class ReportExporter {
     final sortedTransactions = List<SaleRecord>.from(transactions)
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
+    // Hitung judul bulan & tahun untuk laporan
+    const monthNames = [
+      'JANUARI',
+      'FEBRUARI',
+      'MARET',
+      'APRIL',
+      'MEI',
+      'JUNI',
+      'JULI',
+      'AGUSTUS',
+      'SEPTEMBER',
+      'OKTOBER',
+      'NOVEMBER',
+      'DESEMBER',
+    ];
+    final String periodTitle;
+    if (startDate != null && endDate != null) {
+      if (startDate.year == endDate.year && startDate.month == endDate.month) {
+        periodTitle = 'BULAN ${monthNames[startDate.month - 1]} ${startDate.year}';
+      } else {
+        periodTitle = 'PERIODE ${monthNames[startDate.month - 1]} ${startDate.year} - ${monthNames[endDate.month - 1]} ${endDate.year}';
+      }
+    } else {
+      final refDate = startDate ?? (sortedTransactions.isNotEmpty ? sortedTransactions.first.createdAt : DateTime.now());
+      periodTitle = 'BULAN ${monthNames[refDate.month - 1]} ${refDate.year}';
+    }
+
     for (final t in sortedTransactions) {
       final itemCount = t.items.isEmpty ? 1 : t.items.length;
       final allocatedTax = (t.tax / itemCount).round();
@@ -533,30 +694,65 @@ class ReportExporter {
         maxPages: 1000,
         margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         header: (context) {
-          return pw.Container(
-            color: headerBgColor,
-            padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
-            child: pw.Table(
-              columnWidths: detailWidths,
-              children: [
-                pw.TableRow(
-                  children: detailHeaders.map((h) {
-                    final isNumber = h.contains('(Rp)') || h == 'Qty' || h == 'No.';
-                    return pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 2),
-                      child: pw.Text(
-                        h,
-                        textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
-                        style: pw.TextStyle(
-                          fontSize: 6.2,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  }).toList(),
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              if (context.pageNumber == 1) ...[
+                pw.Center(
+                  child: pw.Text(
+                    'LAPORAN THE LEGEND HOT POT',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                 ),
+                pw.SizedBox(height: 2),
+                pw.Center(
+                  child: pw.Text(
+                    periodTitle,
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  'DETAIL TRANSAKSI PENJUALAN',
+                  style: pw.TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
               ],
-            ),
+              pw.Container(
+                color: headerBgColor,
+                padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+                child: pw.Table(
+                  columnWidths: detailWidths,
+                  children: [
+                    pw.TableRow(
+                      children: detailHeaders.map((h) {
+                        final isNumber = h.contains('(Rp)') || h == 'Qty' || h == 'No.';
+                        return pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 2),
+                          child: pw.Text(
+                            h,
+                            textAlign: isNumber ? pw.TextAlign.right : pw.TextAlign.left,
+                            style: pw.TextStyle(
+                              fontSize: 6.2,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           );
         },
         build: (context) {
@@ -589,33 +785,6 @@ class ReportExporter {
         },
       ),
     );
-
-    // Hitung judul bulan & tahun untuk rekap produk
-    const monthNames = [
-      'JANUARI',
-      'FEBRUARI',
-      'MARET',
-      'APRIL',
-      'MEI',
-      'JUNI',
-      'JULI',
-      'AGUSTUS',
-      'SEPTEMBER',
-      'OKTOBER',
-      'NOVEMBER',
-      'DESEMBER',
-    ];
-    final String periodTitle;
-    if (startDate != null && endDate != null) {
-      if (startDate.year == endDate.year && startDate.month == endDate.month) {
-        periodTitle = 'BULAN ${monthNames[startDate.month - 1]} ${startDate.year}';
-      } else {
-        periodTitle = 'PERIODE ${monthNames[startDate.month - 1]} ${startDate.year} - ${monthNames[endDate.month - 1]} ${endDate.year}';
-      }
-    } else {
-      final refDate = startDate ?? (sortedTransactions.isNotEmpty ? sortedTransactions.first.createdAt : DateTime.now());
-      periodTitle = 'BULAN ${monthNames[refDate.month - 1]} ${refDate.year}';
-    }
 
     final sortedProductList = productSummary.entries.toList()
       ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
