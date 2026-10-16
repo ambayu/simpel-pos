@@ -68,29 +68,27 @@ class _WideLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: EdgeInsets.zero,
       children: [
-        // Kolom kiri – header & statistik (fixed width)
-        SizedBox(
-          width: 340,
-          child: ListView(
-            padding: EdgeInsets.zero,
+        // Header "Selamat Datang" & Stat Cards full width dari kiri ke kanan
+        _DashboardHeader(store: store, onNewOrder: onNewOrder),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DashboardHeader(store: store, onNewOrder: onNewOrder),
-            ],
-          ),
-        ),
-        // Divider vertikal
-        const VerticalDivider(width: 1, thickness: 1),
-        // Kolom kanan – pesanan terbaru (flexible)
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            children: [
-              _RecentOrdersPanel(store: store, onNewOrder: onNewOrder),
-              const SizedBox(height: 16),
-              _QuickStatsPanel(store: store),
+              // Kolom kiri: Pesanan terbaru
+              Expanded(
+                flex: 6,
+                child: _RecentOrdersPanel(store: store, onNewOrder: onNewOrder),
+              ),
+              const SizedBox(width: 20),
+              // Kolom kanan: Menu terlaris
+              Expanded(
+                flex: 5,
+                child: _QuickStatsPanel(store: store),
+              ),
             ],
           ),
         ),
@@ -278,7 +276,7 @@ class _DashboardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: const BoxDecoration(color: AppColors.primary),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,7 +292,7 @@ class _DashboardHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 19,
+                        fontSize: 21,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                       ),
@@ -303,8 +301,8 @@ class _DashboardHeader extends StatelessWidget {
                     Text(
                       _formatDate(now),
                       style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.white.withValues(alpha: .82),
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: .85),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -312,8 +310,8 @@ class _DashboardHeader extends StatelessWidget {
                 ),
               ),
               Container(
-                width: 38,
-                height: 38,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: .18),
                   shape: BoxShape.circle,
@@ -326,17 +324,18 @@ class _DashboardHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 720 ? 4 : 2;
+              final isWide = constraints.maxWidth >= 600;
+              final columns = isWide ? 4 : 2;
               return GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: columns,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1.80,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: isWide ? 2.1 : 1.80,
                 children: [
                   _StatCard(
                     label: 'Omzet Hari Ini',
@@ -377,9 +376,13 @@ class _DashboardHeader extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primaryDark,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               icon: const Icon(Icons.add_circle_outline_rounded),
-              label: const Text('Buat Pesanan Baru'),
+              label: const Text(
+                'Buat Pesanan Baru',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              ),
             ),
           ),
         ],
