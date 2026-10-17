@@ -15,6 +15,7 @@ class MenuItem {
     this.description = '',
     this.variants = const <MenuVariant>[],
     this.favorite = false,
+    this.stock = 50,
   });
 
   final String id;
@@ -28,6 +29,7 @@ class MenuItem {
   final String description;
   final List<MenuVariant> variants;
   final bool favorite;
+  final int stock;
 
   MenuItem copyWith({
     String? id,
@@ -41,6 +43,7 @@ class MenuItem {
     String? description,
     List<MenuVariant>? variants,
     bool? favorite,
+    int? stock,
     bool clearImagePath = false,
   }) {
     return MenuItem(
@@ -55,6 +58,7 @@ class MenuItem {
       description: description ?? this.description,
       variants: variants ?? this.variants,
       favorite: favorite ?? this.favorite,
+      stock: stock ?? this.stock,
     );
   }
 }
@@ -219,4 +223,104 @@ String rupiah(num value) {
     output.write(digits[index]);
   }
   return '${negative ? '-' : ''}Rp $output';
+}
+
+enum SimpelPermission {
+  dashboard,
+  table,
+  tableAksi,
+  order,
+  orderAksi,
+  report,
+  reportAksi,
+  product,
+  productAksi,
+  stock,
+  stockAksi,
+  settings,
+  userManagement,
+}
+
+extension SimpelPermissionX on SimpelPermission {
+  String get label {
+    switch (this) {
+      case SimpelPermission.dashboard:
+        return 'Menu Beranda (Dashboard)';
+      case SimpelPermission.table:
+        return 'Menu Denah Meja (Lihat)';
+      case SimpelPermission.tableAksi:
+        return 'Aksi Meja (Tambah & Kelola Meja)';
+      case SimpelPermission.order:
+        return 'Menu Pesanan & Kasir (Lihat)';
+      case SimpelPermission.orderAksi:
+        return 'Aksi Kasir (Buat Pesanan & Bayar)';
+      case SimpelPermission.report:
+        return 'Menu Laporan (Lihat)';
+      case SimpelPermission.reportAksi:
+        return 'Aksi Laporan (Cetak & Ekspor)';
+      case SimpelPermission.product:
+        return 'Menu Produk & Menu (Lihat)';
+      case SimpelPermission.productAksi:
+        return 'Aksi Produk (Tambah, Edit, Hapus Menu)';
+      case SimpelPermission.stock:
+        return 'Menu Penyimpanan Stok (Lihat)';
+      case SimpelPermission.stockAksi:
+        return 'Aksi Stok (Tambah Masuk, Kurang, Opname)';
+      case SimpelPermission.settings:
+        return 'Menu Pengaturan Restoran';
+      case SimpelPermission.userManagement:
+        return 'Manajemen User & Role Permission';
+    }
+  }
+
+  bool get isAction =>
+      this == SimpelPermission.tableAksi ||
+      this == SimpelPermission.orderAksi ||
+      this == SimpelPermission.reportAksi ||
+      this == SimpelPermission.productAksi ||
+      this == SimpelPermission.stockAksi;
+}
+
+class UserAccount {
+  const UserAccount({
+    required this.username,
+    required this.password,
+    required this.role,
+  });
+
+  final String username;
+  final String password;
+  final String role;
+
+  UserAccount copyWith({
+    String? username,
+    String? password,
+    String? role,
+  }) {
+    return UserAccount(
+      username: username ?? this.username,
+      password: password ?? this.password,
+      role: role ?? this.role,
+    );
+  }
+}
+
+class RoleAccess {
+  const RoleAccess({
+    required this.roleName,
+    required this.permissions,
+  });
+
+  final String roleName;
+  final Set<SimpelPermission> permissions;
+
+  RoleAccess copyWith({
+    String? roleName,
+    Set<SimpelPermission>? permissions,
+  }) {
+    return RoleAccess(
+      roleName: roleName ?? this.roleName,
+      permissions: permissions ?? this.permissions,
+    );
+  }
 }

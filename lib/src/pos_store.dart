@@ -23,7 +23,115 @@ class PosStore extends ChangeNotifier {
 
   int discount = 0;
   String role = 'Kasir';
+  String currentUsername = 'kasir';
   String? activeOrder;
+
+  // Daftar Akun Pengguna
+  final users = <UserAccount>[
+    const UserAccount(username: 'owner', password: '123', role: 'Owner'),
+    const UserAccount(username: 'admin', password: '123', role: 'Admin'),
+    const UserAccount(username: 'kasir', password: '123', role: 'Kasir'),
+    const UserAccount(username: 'pegawai', password: '123', role: 'Pegawai'),
+  ];
+
+  // Matriks Akses Peran (Permission Bebas)
+  final Map<String, Set<SimpelPermission>> rolePermissions = {
+    'Owner': SimpelPermission.values.toSet(),
+    'Admin': {
+      SimpelPermission.dashboard,
+      SimpelPermission.table,
+      SimpelPermission.tableAksi,
+      SimpelPermission.order,
+      SimpelPermission.orderAksi,
+      SimpelPermission.report,
+      SimpelPermission.reportAksi,
+      SimpelPermission.product,
+      SimpelPermission.productAksi,
+      SimpelPermission.stock,
+      SimpelPermission.stockAksi,
+      SimpelPermission.settings,
+    },
+    'Kasir': {
+      SimpelPermission.dashboard,
+      SimpelPermission.table,
+      SimpelPermission.order,
+      SimpelPermission.orderAksi,
+      SimpelPermission.report,
+      SimpelPermission.stock,
+    },
+    'Pegawai': {
+      SimpelPermission.dashboard,
+      SimpelPermission.table,
+      SimpelPermission.order,
+    },
+  };
+
+  bool hasPermission(SimpelPermission permission) {
+    if (role == 'Owner') return true;
+    final perms = rolePermissions[role];
+    if (perms == null) return false;
+    return perms.contains(permission);
+  }
+
+  void togglePermission(String targetRole, SimpelPermission permission, bool allow) {
+    final current = rolePermissions[targetRole] ?? <SimpelPermission>{};
+    if (allow) {
+      current.add(permission);
+    } else {
+      current.remove(permission);
+    }
+    rolePermissions[targetRole] = current;
+    notifyListeners();
+  }
+
+  bool authenticate(String inputRole, String username, String password) {
+    final user = users.firstWhere(
+      (u) =>
+          u.role.toLowerCase() == inputRole.toLowerCase() &&
+          u.username.toLowerCase() == username.trim().toLowerCase(),
+      orElse: () => const UserAccount(username: '', password: '', role: ''),
+    );
+    if (user.username.isEmpty) return false;
+    if (user.password != password.trim()) return false;
+
+    role = user.role;
+    currentUsername = user.username;
+    notifyListeners();
+    return true;
+  }
+
+  void ownerUpdateUserCredentials({
+    required String originalUsername,
+    required String newUsername,
+    String? newPassword,
+  }) {
+    final idx = users.indexWhere((u) => u.username.toLowerCase() == originalUsername.toLowerCase());
+    if (idx < 0) return;
+    final old = users[idx];
+    users[idx] = old.copyWith(
+      username: newUsername.trim().isEmpty ? old.username : newUsername.trim(),
+      password: (newPassword != null && newPassword.trim().isNotEmpty) ? newPassword.trim() : old.password,
+    );
+    if (currentUsername.toLowerCase() == originalUsername.toLowerCase()) {
+      currentUsername = users[idx].username;
+    }
+    notifyListeners();
+  }
+
+  void adjustStock(String productId, int newStock) {
+    final idx = menu.indexWhere((m) => m.id == productId);
+    if (idx < 0) return;
+    menu[idx] = menu[idx].copyWith(stock: newStock.clamp(0, 999999));
+    notifyListeners();
+  }
+
+  void addStock(String productId, int delta) {
+    final idx = menu.indexWhere((m) => m.id == productId);
+    if (idx < 0) return;
+    final nextStock = (menu[idx].stock + delta).clamp(0, 999999);
+    menu[idx] = menu[idx].copyWith(stock: nextStock);
+    notifyListeners();
+  }
 
   final menu = <MenuItem>[
     MenuItem(
@@ -1770,9 +1878,15 @@ class PosStore extends ChangeNotifier {
       total: grandTotal,
       paymentMethod: paymentMethod,
       paidAmount: paidAmount ?? grandTotal,
-      cashier: role,
+      cashier: currentUsername,
       createdAt: now,
     );
+
+    // Kurangi stok barang sesuai item terjual
+    for (final line in cart.values) {
+      addStock(line.item.id, -line.quantity);
+    }
+
     transactions.insert(0, transaction);
     if (activeOrder != null) {
       pendingOrders.remove(activeOrder);

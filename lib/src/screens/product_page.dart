@@ -20,126 +20,137 @@ class ProductPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: store,
-    builder: (context, _) => Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Kelola Produk & Menu'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => _openForm(context),
-          ),
-        ],
-      ),
-      body: AdminBackdrop(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            HeaderCard(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Daftar Menu & Produk',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${store.menu.length} Menu Terdaftar',
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => _openForm(context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(40, 36),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Tambah Menu'),
-                  ),
-                ],
+  Widget build(BuildContext context) {
+    final canManage = store.hasPermission(SimpelPermission.productAksi);
+
+    return AnimatedBuilder(
+      animation: store,
+      builder: (context, _) => Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('Kelola Produk & Menu'),
+          actions: [
+            if (canManage)
+              IconButton(
+                icon: const Icon(Icons.add_rounded),
+                onPressed: () => _openForm(context),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  ...store.menu.map((product) {
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(10),
-                        leading: SizedBox(
-                          width: 54,
-                          height: 54,
-                          child: FoodImage(
-                            assetPath: product.assetPath,
-                            filePath: product.imagePath,
-                            fallbackIcon: product.icon,
-                            fallbackColor: product.color,
-                            borderRadius: 10,
-                          ),
-                        ),
-                        title: Text(
-                          product.name,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${product.category} • ${rupiah(product.price)}',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) {
-                            if (v == 'edit') _openForm(context, product);
-                            if (v == 'delete') store.deleteProduct(product.id);
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'edit', child: Text('Ubah')),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text(
-                                'Hapus',
-                                style: TextStyle(color: AppColors.danger),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
           ],
         ),
+        body: AdminBackdrop(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              HeaderCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Daftar Menu & Produk',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${store.menu.length} Menu Terdaftar',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (canManage)
+                      FilledButton.icon(
+                        onPressed: () => _openForm(context),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(40, 36),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Tambah Menu'),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    ...store.menu.map((product) {
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(10),
+                          leading: SizedBox(
+                            width: 54,
+                            height: 54,
+                            child: FoodImage(
+                              assetPath: product.assetPath,
+                              filePath: product.imagePath,
+                              fallbackIcon: product.icon,
+                              fallbackColor: product.color,
+                              borderRadius: 10,
+                            ),
+                          ),
+                          title: Text(
+                            product.name,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${product.category} • ${rupiah(product.price)} • Stok: ${product.stock}',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          trailing: canManage
+                              ? PopupMenuButton<String>(
+                                  onSelected: (v) {
+                                    if (v == 'edit') _openForm(context, product);
+                                    if (v == 'delete') store.deleteProduct(product.id);
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(value: 'edit', child: Text('Ubah')),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text(
+                                        'Hapus',
+                                        style: TextStyle(color: AppColors.danger),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Text('Lihat Saja', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class ProductFormPage extends StatefulWidget {

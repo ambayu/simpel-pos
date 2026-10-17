@@ -57,11 +57,128 @@ class _LoginPageState extends State<LoginPage> {
     ),
   ];
 
-  void _submit() {
-    widget.store.setRole(selectedRole);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => ShellPage(store: widget.store)),
+  void _onRoleTapped(_RoleOption role) {
+    setState(() => selectedRole = role.name);
+    _openLoginDialog(role.name);
+  }
+
+  Future<void> _openLoginDialog(String roleName) async {
+    final usernameController = TextEditingController(text: roleName.toLowerCase());
+    final passwordController = TextEditingController(text: '123');
+    final formKey = GlobalKey<FormState>();
+    bool obscure = true;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.lock_person_rounded, color: AppColors.primary, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Masuk sebagai $roleName',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 360),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Masukkan username & password untuk role $roleName:',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: usernameController,
+                        decoration: InputDecoration(
+                          labelText: 'Username',
+                          prefixIcon: const Icon(Icons.person_outline),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Username wajib diisi';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: passwordController,
+                        obscureText: obscure,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          suffixIcon: IconButton(
+                            icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                            onPressed: () => setDialogState(() => obscure = !obscure),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.length < 3) return 'Minimal 3 karakter';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Batal'),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    if (!formKey.currentState!.validate()) return;
+                    final ok = widget.store.authenticate(
+                      roleName,
+                      usernameController.text,
+                      passwordController.text,
+                    );
+                    if (!ok) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Username atau password salah!')),
+                      );
+                      return;
+                    }
+                    Navigator.pop(dialogCtx);
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => ShellPage(store: widget.store)),
+                    );
+                  },
+                  icon: const Icon(Icons.login_rounded),
+                  label: const Text('Masuk'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+  }
+
+  void _submit() {
+    _openLoginDialog(selectedRole);
   }
 
   @override
@@ -148,8 +265,7 @@ class _LoginPageState extends State<LoginPage> {
                               return _RoleCard(
                                 role: role,
                                 selected: selected,
-                                onTap: () =>
-                                    setState(() => selectedRole = role.name),
+                                onTap: () => _onRoleTapped(role),
                               );
                             },
                           ),

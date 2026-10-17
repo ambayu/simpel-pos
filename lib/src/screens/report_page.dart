@@ -1312,10 +1312,11 @@ class _ReportPageState extends State<ReportPage>
       final double chartMax = maxVal > 0 ? maxVal * 1.15 : 1000000;
 
       final isProcessing = exportingSummary || exportingDetail || exportingPdf || exportingZip;
+      final canAct = widget.store.hasPermission(SimpelPermission.reportAksi);
 
       return Scaffold(
         backgroundColor: Colors.transparent,
-        floatingActionButton: _buildCollapsibleFab(filteredList, isProcessing),
+        floatingActionButton: canAct ? _buildCollapsibleFab(filteredList, isProcessing) : null,
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: ListView(
         controller: _scrollController,

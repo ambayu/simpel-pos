@@ -583,11 +583,16 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
             ),
             child: SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _submit,
-                icon: const Icon(Icons.shopping_cart_outlined),
-                label: Text('Tambah ke Pesanan • ${rupiah(total)}'),
-              ),
+              child: widget.store.hasPermission(SimpelPermission.orderAksi)
+                  ? FilledButton.icon(
+                      onPressed: _submit,
+                      icon: const Icon(Icons.shopping_cart_outlined),
+                      label: Text('Tambah ke Pesanan • ${rupiah(total)}'),
+                    )
+                  : FilledButton.tonal(
+                      onPressed: null,
+                      child: const Text('Hanya Lihat (Read-Only)'),
+                    ),
             ),
           ),
         ],
@@ -872,7 +877,7 @@ class _CartPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: store.cart.isEmpty
+                              onPressed: (store.cart.isEmpty || !store.hasPermission(SimpelPermission.orderAksi))
                                   ? null
                                   : () {
                                       store.savePendingOrder();
@@ -886,7 +891,7 @@ class _CartPage extends StatelessWidget {
                           Expanded(
                             flex: 2,
                             child: FilledButton.icon(
-                              onPressed: store.cart.isEmpty
+                              onPressed: (store.cart.isEmpty || !store.hasPermission(SimpelPermission.orderAksi))
                                   ? null
                                   : () => _nextToPayment(context),
                               iconAlignment: IconAlignment.end,
@@ -900,7 +905,7 @@ class _CartPage extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: store.cart.isEmpty
+                          onPressed: (store.cart.isEmpty || !store.hasPermission(SimpelPermission.orderAksi))
                               ? null
                               : () => _nextToPayment(context),
                           iconAlignment: IconAlignment.end,

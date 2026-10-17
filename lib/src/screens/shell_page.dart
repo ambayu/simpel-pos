@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models.dart';
 import '../pos_store.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_page.dart';
@@ -7,8 +8,11 @@ import 'login_page.dart';
 import 'order_page.dart';
 import 'product_page.dart';
 import 'report_page.dart';
+import 'role_permissions_page.dart';
 import 'simple_pages.dart';
+import 'stock_management_page.dart';
 import 'table_page.dart';
+import 'user_management_page.dart';
 
 class ShellPage extends StatefulWidget {
   const ShellPage({super.key, required this.store});
@@ -137,65 +141,102 @@ class _MoreMenuPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
-              _MenuTile(
-                icon: Icons.table_restaurant_rounded,
-                title: 'Atur & Kelola Meja',
-                subtitle: 'Atur nomor meja, kapasitas kursi, & reservasi',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => TableFormPage(store: store)),
-                  );
-                },
-              ),
-        _MenuTile(
-          icon: Icons.inventory_2_outlined,
-          title: 'Kelola Produk & Menu',
-          subtitle: 'Ubah harga, tambah varian, kelola foto',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => ProductPage(store: store)),
-            );
-          },
-        ),
-        _MenuTile(
-          icon: Icons.receipt_outlined,
-          title: 'Riwayat Transaksi',
-          subtitle: 'Daftar semua transaksi yang telah selesai',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => Scaffold(
-                  backgroundColor: Colors.transparent,
-                  appBar: AppBar(title: const Text('Riwayat Transaksi')),
-                  body: AdminBackdrop(child: TransactionPage(store: store)),
+              if (store.hasPermission(SimpelPermission.stock))
+                _MenuTile(
+                  icon: Icons.inventory_2_rounded,
+                  title: 'Penyimpanan Stok Barang',
+                  subtitle: 'Pantau stok, tambah barang masuk, dan opname fisik',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => StockManagementPage(store: store)),
+                    );
+                  },
                 ),
-              ),
-            );
-          },
-        ),
-        _MenuTile(
-          icon: Icons.settings_outlined,
-          title: 'Pengaturan Restoran',
-          subtitle: 'Pajak, profil kasir, dan struk',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => Scaffold(
-                  backgroundColor: Colors.transparent,
-                  appBar: AppBar(title: const Text('Pengaturan')),
-                  body: const AdminBackdrop(
-                    child: SimpleListPage(
-                      title: 'Pengaturan',
-                      subtitle: 'Atur restoran, pajak, dan metode pembayaran',
-                      icon: Icons.settings_rounded,
-                    ),
-                  ),
+              if (store.role == 'Owner')
+                _MenuTile(
+                  icon: Icons.manage_accounts_rounded,
+                  title: 'Manajemen Akun Pengguna',
+                  subtitle: 'Ganti password dan username untuk tiap akun role',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => UserManagementPage(store: store)),
+                    );
+                  },
                 ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 20),
+              if (store.role == 'Owner')
+                _MenuTile(
+                  icon: Icons.security_rounded,
+                  title: 'Atur Hak Akses & Permission',
+                  subtitle: 'Atur secara bebas menu mana yang bisa lihat dan aksi apa yang diizinkan',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => RolePermissionsPage(store: store)),
+                    );
+                  },
+                ),
+              if (store.hasPermission(SimpelPermission.table))
+                _MenuTile(
+                  icon: Icons.table_restaurant_rounded,
+                  title: 'Atur & Kelola Meja',
+                  subtitle: 'Atur nomor meja, kapasitas kursi, & reservasi',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => TableFormPage(store: store)),
+                    );
+                  },
+                ),
+              if (store.hasPermission(SimpelPermission.product))
+                _MenuTile(
+                  icon: Icons.restaurant_menu_rounded,
+                  title: 'Kelola Produk & Menu',
+                  subtitle: 'Ubah harga, tambah varian, kelola foto',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => ProductPage(store: store)),
+                    );
+                  },
+                ),
+              if (store.hasPermission(SimpelPermission.report))
+                _MenuTile(
+                  icon: Icons.receipt_outlined,
+                  title: 'Riwayat Transaksi',
+                  subtitle: 'Daftar semua transaksi yang telah selesai',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          backgroundColor: Colors.transparent,
+                          appBar: AppBar(title: const Text('Riwayat Transaksi')),
+                          body: AdminBackdrop(child: TransactionPage(store: store)),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              if (store.hasPermission(SimpelPermission.settings))
+                _MenuTile(
+                  icon: Icons.settings_outlined,
+                  title: 'Pengaturan Restoran',
+                  subtitle: 'Pajak, profil kasir, dan struk',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          backgroundColor: Colors.transparent,
+                          appBar: AppBar(title: const Text('Pengaturan')),
+                          body: const AdminBackdrop(
+                            child: SimpleListPage(
+                              title: 'Pengaturan',
+                              subtitle: 'Atur restoran, pajak, dan metode pembayaran',
+                              icon: Icons.settings_rounded,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(height: 20),
 
         SizedBox(
           width: double.infinity,

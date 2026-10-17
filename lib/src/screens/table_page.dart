@@ -47,21 +47,22 @@ class TablePage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => TableFormPage(store: store),
+                    if (store.hasPermission(SimpelPermission.tableAksi))
+                      FilledButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => TableFormPage(store: store),
+                          ),
                         ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(42, 38),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        icon: const Icon(Icons.tune_rounded, size: 18),
+                        label: const Text('Atur Meja'),
                       ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(42, 38),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                      ),
-                      icon: const Icon(Icons.tune_rounded, size: 18),
-                      label: const Text('Atur Meja'),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
