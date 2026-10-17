@@ -871,39 +871,56 @@ class ReportExporter {
           maxPages: 1000,
           margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           header: (context) {
+            final printDateFormatted = _formatDateTime(DateTime.now());
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                if (context.pageNumber == 1) ...[
-                  pw.Center(
-                    child: pw.Text(
-                      'LAPORAN THE LEGEND HOT POT',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
+                pw.Stack(
+                  alignment: pw.Alignment.center,
+                  children: [
+                    pw.Column(
+                      children: [
+                        pw.Text(
+                          'LAPORAN THE LEGEND HOT POT',
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          periodTitle,
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    pw.Positioned(
+                      top: 0,
+                      right: 0,
+                      child: pw.Text(
+                        'Dicetak pada: $printDateFormatted',
+                        style: const pw.TextStyle(
+                          fontSize: 8.5,
+                          color: PdfColors.grey700,
+                        ),
                       ),
                     ),
+                  ],
+                ),
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  context.pageNumber == 1
+                      ? 'DETAIL TRANSAKSI PENJUALAN'
+                      : 'DETAIL TRANSAKSI PENJUALAN (Lanjutan - Hal. ${context.pageNumber})',
+                  style: pw.TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: pw.FontWeight.bold,
                   ),
-                  pw.SizedBox(height: 2),
-                  pw.Center(
-                    child: pw.Text(
-                      periodTitle,
-                      style: pw.TextStyle(
-                        fontSize: 11,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(height: 8),
-                  pw.Text(
-                    'DETAIL TRANSAKSI PENJUALAN',
-                    style: pw.TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 6),
-                ],
+                ),
+                pw.SizedBox(height: 6),
               ],
             );
           },
@@ -976,40 +993,57 @@ class ReportExporter {
           maxPages: 1000,
           margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           header: (context) {
+            final printDateFormatted = _formatDateTime(DateTime.now());
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                if (context.pageNumber == 1) ...[
-                  pw.Center(
-                    child: pw.Text(
-                      'LAPORAN THE LEGEND HOT POT',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
+                pw.Stack(
+                  alignment: pw.Alignment.center,
+                  children: [
+                    pw.Column(
+                      children: [
+                        pw.Text(
+                          'LAPORAN THE LEGEND HOT POT',
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          periodTitle,
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    pw.Positioned(
+                      top: 0,
+                      right: 0,
+                      child: pw.Text(
+                        'Dicetak pada: $printDateFormatted',
+                        style: const pw.TextStyle(
+                          fontSize: 8.5,
+                          color: PdfColors.grey700,
+                        ),
                       ),
                     ),
+                  ],
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  context.pageNumber == 1
+                      ? 'REKAP PENJUALAN PRODUK'
+                      : 'REKAP PENJUALAN PRODUK (Lanjutan - Hal. ${context.pageNumber})',
+                  style: pw.TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: pw.FontWeight.bold,
+                    fontStyle: pw.FontStyle.italic,
                   ),
-                  pw.SizedBox(height: 2),
-                  pw.Center(
-                    child: pw.Text(
-                      periodTitle,
-                      style: pw.TextStyle(
-                        fontSize: 11,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(height: 10),
-                  pw.Text(
-                    'REKAP PENJUALAN PRODUK',
-                    style: pw.TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: pw.FontWeight.bold,
-                      fontStyle: pw.FontStyle.italic,
-                    ),
-                  ),
-                  pw.SizedBox(height: 6),
-                ],
+                ),
+                pw.SizedBox(height: 6),
               ],
             );
           },
